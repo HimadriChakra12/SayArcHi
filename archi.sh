@@ -2,20 +2,21 @@
 set -e
 
 echo "==> Arch Linux Master Installer (Base + User Setup)"
-
+lsblk -d -o NAME,SIZE,MODEL
 # 1. Prompt for values
 read -rp "Enter target disk (e.g. /dev/sda): " DISK
 read -rp "Enter hostname: " HOSTNAME
 read -rp "Enter new username: " USERNAME
 while true; do
-  echo "Enter password:"
-  read PASSWORD
-  echo "Confirm password:"
-  read PASSWORD2
-  if [ "$PASSWORD" = "$PASSWORD2" ]; then
+  read -rsp "Enter password for $USERNAME: " PASSWORD
+  echo
+  read -rsp "Confirm password: " PASSWORD2
+  echo
+  if [[ "$PASSWORD" == "$PASSWORD2" ]]; then
+    echo "Passwords match!"
     break
   else
-    echo "Passwords do not match, try again."
+    echo "Passwords do not match. Try again."
   fi
 done
 
