@@ -3,6 +3,20 @@ set -e
 
 echo "==> Installing desktop environment and applications..."
 
+if [[ ! -d pikaur ]]; then
+sudo pacman -S --needed base-devel git
+git clone https://aur.archlinux.org/pikaur.git
+cd pikaur
+makepkg -fsri
+fi
+
+if [[ ! -d yay ]]; then
+sudo pacman -S --needed git base-devel
+git clone https://aur.archlinux.org/yay.git
+cd yay
+makepkg -si
+fi
+
 # Define package list
 core_pkgs=(
   xorg xorg-xinit i3-gaps i3status dmenu
@@ -13,7 +27,7 @@ core_pkgs=(
   xfce4-clipman flameshot
 )
 
-sudo pacman -Syu --noconfirm "${core_pkgs[@]}"
+yay -Syu --noconfirm "${core_pkgs[@]}"
 
 echo "==> Installing Microsoft Edge browser..."
 edge_pkg="microsoft-edge-stable-*.pkg.tar.zst"
@@ -25,14 +39,18 @@ echo "==> Installing AUR helpers..."
 
 cd ~
 if [[ ! -d pikaur ]]; then
-  git clone https://aur.archlinux.org/pikaur.git
-  cd pikaur && makepkg -si --noconfirm
+sudo pacman -S --needed base-devel git
+git clone https://aur.archlinux.org/pikaur.git
+cd pikaur
+makepkg -fsri
 fi
 
 cd ~
 if [[ ! -d yay ]]; then
-  git clone https://aur.archlinux.org/yay.git
-  cd yay && makepkg -si --noconfirm
+sudo pacman -S --needed git base-devel
+git clone https://aur.archlinux.org/yay.git
+cd yay
+makepkg -si
 fi
 
 echo "==> Setting up i3 config..."
