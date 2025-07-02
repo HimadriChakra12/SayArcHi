@@ -8,11 +8,11 @@ read -rp "Enter target disk (e.g. /dev/sda): " DISK
 read -rp "Enter hostname: " HOSTNAME
 read -rp "Enter new username: " USERNAME
 while true; do
-  read -rsp "Enter password for $USERNAME: " PASSWORD
-  echo
-  read -rsp "Confirm password: " PASSWORD2
-  echo
-  if [[ "$PASSWORD" == "$PASSWORD2" ]]; then
+  echo "Enter password:"
+  read PASSWORD
+  echo "Confirm password:"
+  read PASSWORD2
+  if [ "$PASSWORD" = "$PASSWORD2" ]; then
     break
   else
     echo "Passwords do not match, try again."
