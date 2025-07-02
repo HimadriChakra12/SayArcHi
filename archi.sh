@@ -10,10 +10,13 @@ read -rp "Enter new username: " USERNAME
 while true; do
   read -rsp "Enter password for $USERNAME: " PASSWORD
   echo
-  read -rsp "Confirm password: " CONFIRM
+  read -rsp "Confirm password: " PASSWORD2
   echo
-  [[ "$PASSWORD" == "$CONFIRM" ]] && break
-  echo "Passwords do not match. Try again."
+  if [[ "$PASSWORD" == "$PASSWORD2" ]]; then
+    break
+  else
+    echo "Passwords do not match, try again."
+  fi
 done
 
 # 2. Partition + Format
