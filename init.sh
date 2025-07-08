@@ -6,9 +6,9 @@ echo "
 /____/ \__,_/ \__, //_/  |_|/_/    \___//_/ /_//_/   
              /____/                                 
 
-Wanna Start The Script?
+Wanna Start The Script? Press [Enter] to continue...
 "
-read ""
+read -r
 
 mkdir ~/temp
 
