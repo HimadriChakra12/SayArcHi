@@ -12,13 +12,13 @@ Wanna Start The Script? Press [Enter] to continue...
 
 read -r
 
-mkdir ~/temp
-
 sudo pacman -S --noconfirm ly
 sudo systemctl enable ly.service
 echo "Ly installed and enabled."
 
 sudo pacman -S --needed base-devel git
+
+mkdir ~/temp
 
 if command -v pikaur >/dev/null; then
     echo "pikaur is already installed."
@@ -133,14 +133,42 @@ packages=(
 )
 
 
-echo "Language Captain"
+echo "
+
+ |   _. ._   _   _ 
+ |_ (_| | | (_| _> 
+             _|    
+--------------------
+"
 yay -S --noconfirm "${langs[@]}"
-echo "Shell"
+echo "
+  __             
+ (_  |_   _  | | 
+ __) | | (/_ | | 
+-------------------
+"
 yay -S --noconfirm "${shell[@]}"
-echo "i3"
+echo "
+   _  
+ o _) 
+ | _) 
+-------      
+"
 yay -S --noconfirm "${i3[@]}"
-echo "Suppliments"
+echo "
+  _                   
+ / \ _|_ |_   _  ._ _ 
+ \_/  |_ | | (/_ | _> 
+-----------------------
+"
 yay -S --noconfirm "${packages[@]}"
+
+echo "
+                _            
+    _|  _ _|_ _|_ o |  _   _ 
+ o (_| (_) |_  |  | | (/_ _> 
+------------------------------
+"
 
 git clone https://github.com/HimadriChakra12/.dotfiles.git ~/.dotfiles
 
@@ -165,6 +193,11 @@ for entry in "${dotfiles[@]}"; do
   ln -sf "$src" "$tgt"
 done
 
+echo "
+Defaulting Apps
+---------------
+"
+
 echo "Creating ~/.xinitrc if missing..."
 if [ ! -f ~/.xinitrc ]; then
   echo "exec i3" > ~/.xinitrc
@@ -172,14 +205,8 @@ if [ ! -f ~/.xinitrc ]; then
 else
   echo "~/.xinitrc already exists. Make sure it has 'exec i3'"
 fi
-
-#!/bin/bash
-
 echo "Creating local .desktop entries if missing..."
-
 mkdir -p ~/.local/share/applications
-
-# firefox.desktop
 if [ ! -f ~/.local/share/applications/firefox.desktop ]; then
   echo "Creating firefox.desktop..."
   cat > ~/.local/share/applications/firefox.desktop <<EOF
@@ -194,8 +221,6 @@ MimeType=x-scheme-handler/http;x-scheme-handler/https;
 StartupNotify=true
 EOF
 fi
-
-# nemo.desktop
 if [ ! -f ~/.local/share/applications/nemo.desktop ]; then
   echo "Creating nemo.desktop..."
   cat > ~/.local/share/applications/nemo.desktop <<EOF
@@ -209,37 +234,22 @@ Categories=System;FileTools;FileManager;
 MimeType=inode/directory;
 EOF
 fi
-
 echo "Setting default applications..."
-
-# Browser
 xdg-settings set default-web-browser firefox.desktop
 echo "Firefox set as default browser"
-
-# Qimgv as image viewer
 echo "Setting Qimgv as default image viewer..."
 for mime in image/jpeg image/png image/gif image/webp image/svg+xml; do
   xdg-mime default qimgv.desktop "$mime"
 done
-
-# MPV as video player
 echo "Setting MPV as default video player..."
 for mime in video/mp4 video/x-matroska video/x-msvideo video/webm; do
   xdg-mime default mpv.desktop "$mime"
 done
-
-# Rhythmbox as music player
 echo "Setting Rhythmbox as default music player..."
 for mime in audio/mpeg audio/x-wav audio/ogg audio/flac; do
   xdg-mime default rhythmbox.desktop "$mime"
 done
-
-# Nemo as file manager
 xdg-mime default nemo.desktop inode/directory
 xdg-settings set default-file-manager nemo.desktop
 echo "Nemo set as default file manager"
-
 echo "All defaults configured successfully!"
-
-
-
