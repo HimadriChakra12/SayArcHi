@@ -1,3 +1,4 @@
+grub
 wezterm
 mesa
 xorg
