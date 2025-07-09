@@ -167,7 +167,8 @@ echo -ne "
 -------------------------------------------------------------------------
 "
 if [[ ! -d "/sys/firmware/efi" ]]; then
-    grub-install --boot-directory=/mnt/boot ${DISK}
+    grub-install --target=sayarchi "${DISK}"
+    arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
 else
     pacstrap /mnt efibootmgr --noconfirm --needed
 fi
