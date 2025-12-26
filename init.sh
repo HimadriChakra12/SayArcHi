@@ -13,7 +13,11 @@ Wanna Start The Script? Press [Enter] to continue...
 read -r
 
 sudo pacman -S --noconfirm ly
-sudo systemctl enable ly.service
+
+sudo systemctl enable ly.service 2>/dev/null || \
+sudo systemctl enable ly@tty1.service 2>/dev/null || \
+sudo systemctl enable ly@tty2.service
+
 echo "Ly installed and enabled."
 
 sudo pacman -S --needed base-devel git
@@ -59,8 +63,10 @@ shell=(
     "tmux"
     "cat"
     "unzip"
+    "7zip"
 )
 i3=(
+    "flameshot"
     "wezterm"
     "acpi"
     "arandr"
@@ -121,6 +127,9 @@ i3=(
     "dunst"
     "nemo"
     "rofi"
+    "pavucontrol"
+    "polybar"
+    "xclip"
 )
 packages=(
     "firefox"
