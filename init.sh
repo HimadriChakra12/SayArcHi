@@ -42,12 +42,14 @@ shell=(
     "unzip"
     "7zip"
     "zoxide"
+    "btop"
 )
 i3=(
     "i3-wm"
     "i3blocks"
     "i3lock"
     "i3status"
+    "impala"
 
     "redshift"
     "flameshot"
