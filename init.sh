@@ -64,8 +64,10 @@ shell=(
     "cat"
     "unzip"
     "7zip"
+    "zoxide"
 )
 i3=(
+    "redshift"
     "flameshot"
     "wezterm"
     "acpi"
