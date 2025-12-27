@@ -12,41 +12,18 @@ Wanna Start The Script? Press [Enter] to continue...
 
 read -r
 
-sudo pacman -S --noconfirm ly
-
-sudo systemctl enable ly.service 2>/dev/null || \
-sudo systemctl enable ly@tty1.service 2>/dev/null || \
-sudo systemctl enable ly@tty2.service
-
-echo "Ly installed and enabled."
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
 
 sudo pacman -S --needed base-devel git
 
-mkdir ~/temp
+echo -e "\n${GREEN}======================================${NC}"
+echo -e "${GREEN}Installing Packages!${NC}"
+echo -e "${GREEN}======================================${NC}"
 
-if command -v pikaur >/dev/null; then
-    echo "pikaur is already installed."
-else
-    echo "pikaur is not installed. Installing..."
-    git clone https://aur.archlinux.org/pikaur.git ~/temp/pikaur
-    cd ~/temp/pikaur
-    makepkg -fsri --noconfirm
-    echo "Installed pikaur"
-fi
-
-if command -v yay >/dev/null; then
-    echo "yay is already installed."
-else
-    echo "yay is not installed. Installing..."
-    git clone https://aur.archlinux.org/yay-bin.git ~/temp/yay
-    cd ~/temp/yay
-    makepkg -si --noconfirm
-    echo "Installed yay"
-fi
-
-rm -r -f ~/temp
-
-echo "Installing Packages"
 langs=(
     "rust"
     "cmake"
@@ -67,22 +44,33 @@ shell=(
     "zoxide"
 )
 i3=(
+    "i3-wm"
+    "i3blocks"
+    "i3lock"
+    "i3status"
+
     "redshift"
     "flameshot"
     "wezterm"
+    "mpv"
+    "feh"
+    "rofi"
+
     "acpi"
     "arandr"
     "arc-gtk-theme-eos"
     "archlinux-xdg-menu"
     "awesome-terminal-fonts"
     "dex"
+
     "dmenu"
     "dunst"
+
     "eos-settings-i3wm"
     "endeavouros-xfce4-terminal-colors"
     "eos-lightdm-slick-theme"
     "eos-qogir-icons"
-    "feh"
+
     "galculator"
     "gvfs"
     "gvfs-afc"
@@ -90,23 +78,20 @@ i3=(
     "gvfs-mtp"
     "gvfs-nfs"
     "gvfs-smb"
-    "i3-wm"
-    "i3blocks"
-    "i3lock"
-    "i3status"
+
     "jq"
     "nwg-look"
-    "mpv"
     "network-manager-applet"
     "numlockx"
     "playerctl"
     "polkit-gnome"
-    "rofi"
     "scrot"
     "sysstat"
     "thunar-volman"
     "tumbler"
+    "zip"
     "unzip"
+
     "xarchiver"
     "xbindkeys"
     "xdg-user-dirs-gtk"
@@ -115,7 +100,6 @@ i3=(
     "xorg-xbacklight"
     "xorg-xdpyinfo"
     "xss-lock"
-    "zip"
     "xorg-server"
     "xorg-xinit"
     "xorg-xauth"
@@ -123,63 +107,45 @@ i3=(
     "xorg-fonts-misc"
     "xorg-xsetroot"
     "xterm"
-    "i3-wm"
-    "i3status"
-    "dmenu"
-    "dunst"
-    "nemo"
-    "rofi"
     "pavucontrol"
-    "polybar"
     "xclip"
 )
 packages=(
-    "firefox"
     "qimgv"
     "mpv"
     "qemu"
-    "spotify"
     "jdownloader2"
     "qbittorrent"
 )
 
 
-echo "
+echo -e "\n${GREEN}======================================${NC}"
+echo -e "${GREEN}Installing Language Packages!${NC}"
+echo -e "${GREEN}======================================${NC}"
 
- |   _. ._   _   _ 
- |_ (_| | | (_| _> 
-             _|    
---------------------
-"
 yay -S --noconfirm "${langs[@]}"
-echo "
-  __             
- (_  |_   _  | | 
- __) | | (/_ | | 
--------------------
-"
+
+echo -e "\n${GREEN}======================================${NC}"
+echo -e "${GREEN}Installing Shell Packages!${NC}"
+echo -e "${GREEN}======================================${NC}"
+
 yay -S --noconfirm "${shell[@]}"
-echo "
-   _  
- o _) 
- | _) 
--------      
-"
+
+echo -e "\n${GREEN}======================================${NC}"
+echo -e "${GREEN}Installing i3 Packages!${NC}"
+echo -e "${GREEN}======================================${NC}"
+
 yay -S --noconfirm "${i3[@]}"
-echo "
-  _                   
- / \ _|_ |_   _  ._ _ 
- \_/  |_ | | (/_ | _> 
------------------------
-"
+
+echo -e "\n${GREEN}======================================${NC}"
+echo -e "${GREEN}Installing Packages!${NC}"
+echo -e "${GREEN}======================================${NC}"
+
 yay -S --noconfirm "${packages[@]}"
 
-echo "
-                _            
-    _|  _ _|_ _|_ o |  _   _ 
- o (_| (_) |_  |  | | (/_ _> 
-------------------------------
-"
+echo -e "\n${GREEN}==================${NC}"
+echo -e "${GREEN}Dotfiles!${NC}"
+echo -e "${GREEN}==================${NC}"
 
 git clone https://github.com/HimadriChakra12/.dotfiles.git ~/.dotfiles
 
@@ -198,38 +164,7 @@ if [ ! -f ~/.xinitrc ]; then
 else
   echo "~/.xinitrc already exists. Make sure it has 'exec i3'"
 fi
-echo "Creating local .desktop entries if missing..."
-mkdir -p ~/.local/share/applications
-if [ ! -f ~/.local/share/applications/firefox.desktop ]; then
-  echo "Creating firefox.desktop..."
-  cat > ~/.local/share/applications/firefox.desktop <<EOF
-[Desktop Entry]
-Name=Firefox
-Exec=firefox %u
-Type=Application
-Icon=firefox
-Terminal=false
-Categories=Network;WebBrowser;
-MimeType=x-scheme-handler/http;x-scheme-handler/https;
-StartupNotify=true
-EOF
-fi
-if [ ! -f ~/.local/share/applications/nemo.desktop ]; then
-  echo "Creating nemo.desktop..."
-  cat > ~/.local/share/applications/nemo.desktop <<EOF
-[Desktop Entry]
-Name=Nemo
-Exec=nemo %U
-Type=Application
-Icon=folder
-Terminal=false
-Categories=System;FileTools;FileManager;
-MimeType=inode/directory;
-EOF
-fi
-echo "Setting default applications..."
-xdg-settings set default-web-browser firefox.desktop
-echo "Firefox set as default browser"
+
 echo "Setting Qimgv as default image viewer..."
 for mime in image/jpeg image/png image/gif image/webp image/svg+xml; do
   xdg-mime default qimgv.desktop "$mime"
@@ -242,7 +177,4 @@ echo "Setting Rhythmbox as default music player..."
 for mime in audio/mpeg audio/x-wav audio/ogg audio/flac; do
   xdg-mime default rhythmbox.desktop "$mime"
 done
-xdg-mime default nemo.desktop inode/directory
-xdg-settings set default-file-manager nemo.desktop
-echo "Nemo set as default file manager"
 echo "All defaults configured successfully!"
