@@ -58,6 +58,9 @@ i3=(
     "mpv"
     "feh"
     "rofi"
+    "ffmpeg"
+    "wf-recorder"
+    "libnotify"
 
     "acpi"
     "arandr"
