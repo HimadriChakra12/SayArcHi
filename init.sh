@@ -98,6 +98,7 @@ i3=(
     "noto-fonts"
     "ttf-jetbrains-mono-nerd"
 
+    "brightnessctl"
     "xarchiver"
     "xbindkeys"
     "xdg-user-dirs-gtk"
