@@ -49,7 +49,8 @@ i3=(
     "i3blocks"
     "i3lock"
     "i3status"
-    "impala"
+    "wlctl-bin"
+    "dbus"
 
     "redshift"
     "flameshot"
@@ -93,6 +94,9 @@ i3=(
     "tumbler"
     "zip"
     "unzip"
+
+    "noto-fonts"
+    "ttf-jetbrains-mono-nerd"
 
     "xarchiver"
     "xbindkeys"
