@@ -34,13 +34,29 @@ echo -e "${GREEN}==================${NC}"
 git clone https://github.com/HimadriChakra12/.dotfiles.git ~/.dotfiles
 bash ~/.dotfiles/dots.sh
 
+#!/usr/bin/env bash
+set -e  # exit if any script fails
+
 scripts=(
-  "AUR:$HOME/sayarchi/package/AUR.sh"
+  "AUR-Helpers:$HOME/sayarchi/package/AUR.sh"
   "firefox:$HOME/sayarchi/package/firefox.sh"
   "ly:$HOME/sayarchi/package/ly.sh"
   "pcmanfm:$HOME/sayarchi/package/pcmanfm.sh"
   "spotify:$HOME/sayarchi/package/spotify.sh"
 )
+
+echo "Installing Packages"
+for entry in "${scripts[@]}"; do
+    name="${entry%%:*}"
+    script="${entry##*:}"
+    echo "Installing and setting up $name"
+    if [[ -f "$script" ]]; then
+        bash "$script"
+    else
+        echo "❌ Script not found: $script"
+        exit 0
+    fi
+done
 
 echo -e "\n${GREEN}======================================${NC}"
 echo -e "${GREEN}Installing Packages!${NC}"
