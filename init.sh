@@ -20,6 +20,28 @@ NC='\033[0m' # No Color
 
 sudo pacman -S --needed base-devel git
 
+if [ -d "$HOME/sayarchi" ]; then
+    cd $HOME/sayarchi
+else
+    git clone https://github.com/himadrichakr12/sayarchi ~/sayarchi
+    cd $HOME/sayarchi
+fi
+
+echo -e "\n${GREEN}==================${NC}"
+echo -e "${GREEN}Dotfiles!${NC}"
+echo -e "${GREEN}==================${NC}"
+
+git clone https://github.com/HimadriChakra12/.dotfiles.git ~/.dotfiles
+bash ~/.dotfiles/dots.sh
+
+scripts=(
+  "AUR:$HOME/sayarchi/package/AUR.sh"
+  "firefox:$HOME/sayarchi/package/firefox.sh"
+  "ly:$HOME/sayarchi/package/ly.sh"
+  "pcmanfm:$HOME/sayarchi/package/pcmanfm.sh"
+  "spotify:$HOME/sayarchi/package/spotify.sh"
+)
+
 echo -e "\n${GREEN}======================================${NC}"
 echo -e "${GREEN}Installing Packages!${NC}"
 echo -e "${GREEN}======================================${NC}"
@@ -32,7 +54,6 @@ langs=(
     "golang"
 )
 shell=(
-    "ranger"
     "curl"
     "github-cli"
     "lazygit"
@@ -153,14 +174,8 @@ echo -e "${GREEN}======================================${NC}"
 
 yay -S --noconfirm "${packages[@]}"
 
-echo -e "\n${GREEN}==================${NC}"
-echo -e "${GREEN}Dotfiles!${NC}"
-echo -e "${GREEN}==================${NC}"
 
-git clone https://github.com/HimadriChakra12/.dotfiles.git ~/.dotfiles
 
-chmod +x ~/.dotfiles/dotfiles.sh
-bash ~/.dotfiles/dotfiles.sh
 
 echo "
 Defaulting Apps
@@ -183,8 +198,8 @@ echo "Setting MPV as default video player..."
 for mime in video/mp4 video/x-matroska video/x-msvideo video/webm; do
   xdg-mime default mpv.desktop "$mime"
 done
-echo "Setting Rhythmbox as default music player..."
+echo "Setting Lollypop as default music player..."
 for mime in audio/mpeg audio/x-wav audio/ogg audio/flac; do
-  xdg-mime default rhythmbox.desktop "$mime"
+  xdg-mime default lollypop.desktop "$mime"
 done
 echo "All defaults configured successfully!"

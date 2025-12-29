@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Gruvbox Nemo Setup Script for Arch Linux (Fixed)
-# This script installs and configures Gruvbox GTK theme and icons for Nemo file manager
+# Gruvbox pcmanfm Setup Script for Arch Linux (Fixed)
+# This script installs and configures Gruvbox GTK theme and icons for pcmanfm file manager
 
 set -e
 
-yay -S nemo --noconfirm
+yay -S pcmanfm --noconfirm
 
 # Colors for output
 RED='\033[0;31m'
@@ -14,7 +14,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo -e "${GREEN}======================================${NC}"
-echo -e "${GREEN}Gruvbox Nemo Setup for Arch Linux${NC}"
+echo -e "${GREEN}Gruvbox pcmanfm Setup for Arch Linux${NC}"
 echo -e "${GREEN}======================================${NC}\n"
 
 # Check if running on Arch
@@ -197,22 +197,22 @@ else
     echo -e "${YELLOW}! Icon theme not found (this is optional)${NC}"
 fi
 
-# Restart Nemo
-echo -e "\n${YELLOW}Restarting Nemo...${NC}"
-if pgrep -x "nemo" > /dev/null; then
-    nemo -q 2>/dev/null || killall nemo 2>/dev/null || true
+# Restart pcmanfm
+echo -e "\n${YELLOW}Restarting pcmanfm...${NC}"
+if pgrep -x "pcmanfm" > /dev/null; then
+    pcmanfm -q 2>/dev/null || killall pcmanfm 2>/dev/null || true
     sleep 1
-    nemo &>/dev/null & disown
-    echo -e "${GREEN}✓ Nemo restarted${NC}"
+    pcmanfm &>/dev/null & disown
+    echo -e "${GREEN}✓ pcmanfm restarted${NC}"
 else
-    echo -e "${YELLOW}Nemo is not running. Start it manually to see changes.${NC}"
+    echo -e "${YELLOW}pcmanfm is not running. Start it manually to see changes.${NC}"
 fi
 
-echo -e "${GREEN}Forcing Dark Gruvbox Theme for Nemo${NC}\n"
+echo -e "${GREEN}Forcing Dark Gruvbox Theme for pcmanfm${NC}\n"
 
-# Kill any running Nemo instances
-echo -e "${YELLOW}Stopping Nemo...${NC}"
-killall nemo 2>/dev/null || true
+# Kill any running pcmanfm instances
+echo -e "${YELLOW}Stopping pcmanfm...${NC}"
+killall pcmanfm 2>/dev/null || true
 sleep 1
 
 # Set dark theme preference
@@ -318,30 +318,30 @@ else
     echo -e "${YELLOW}To install Gruvbox, the previous script needs to complete successfully${NC}"
 fi
 
-# Create a Nemo launcher script with dark theme
+# Create a pcmanfm launcher script with dark theme
 mkdir -p ~/bin
-cat > ~/bin/nemo-dark << 'EOFSCRIPT'
+cat > ~/bin/pcmanfm-dark << 'EOFSCRIPT'
 #!/bin/bash
 export GTK_THEME=Adwaita:dark
-exec /usr/bin/nemo "$@"
+exec /usr/bin/pcmanfm "$@"
 EOFSCRIPT
 
-chmod +x ~/bin/nemo-dark
+chmod +x ~/bin/pcmanfm-dark
 
 echo -e "\n${GREEN}✓ Dark theme configured${NC}"
-echo -e "${GREEN}✓ Created dark theme launcher at ~/bin/nemo-dark${NC}"
+echo -e "${GREEN}✓ Created dark theme launcher at ~/bin/pcmanfm-dark${NC}"
 
-# Restart Nemo with dark theme
-echo -e "\n${YELLOW}Starting Nemo with dark theme...${NC}"
-GTK_THEME=Adwaita:dark nemo &>/dev/null & disown
+# Restart pcmanfm with dark theme
+echo -e "\n${YELLOW}Starting pcmanfm with dark theme...${NC}"
+GTK_THEME=Adwaita:dark pcmanfm &>/dev/null & disown
 
 echo -e "\n${GREEN}======================================${NC}"
 echo -e "${GREEN}Dark Theme Applied!${NC}"
 echo -e "${GREEN}======================================${NC}"
-echo -e "\n${YELLOW}If Nemo is still light themed:${NC}"
-echo -e "1. Close all Nemo windows"
-echo -e "2. Run: ${GREEN}GTK_THEME=Adwaita:dark nemo${NC}"
-echo -e "3. Or use the launcher: ${GREEN}~/bin/nemo-dark${NC}"
+echo -e "\n${YELLOW}If pcmanfm is still light themed:${NC}"
+echo -e "1. Close all pcmanfm windows"
+echo -e "2. Run: ${GREEN}GTK_THEME=Adwaita:dark pcmanfm${NC}"
+echo -e "3. Or use the launcher: ${GREEN}~/bin/pcmanfm-dark${NC}"
 echo -e "4. Log out and log back in for permanent effect"
 echo -e "\n${YELLOW}Current GTK theme:${NC}"
 gsettings get org.gnome.desktop.interface gtk-theme 2>/dev/null || echo "Could not read theme setting"
@@ -358,7 +358,7 @@ echo -e "${GREEN}======================================${NC}"
 echo -e "\nGruvbox configuration has been applied."
 echo -e "\n${YELLOW}If you don't see changes immediately:${NC}"
 echo -e "1. Log out and log back in (recommended)"
-echo -e "2. Or run: ${YELLOW}nemo -q && nemo &${NC}"
+echo -e "2. Or run: ${YELLOW}pcmanfm -q && pcmanfm &${NC}"
 echo -e "3. Or restart your desktop session"
 echo -e "\nConfiguration:"
 echo -e "  Theme: ${GREEN}$THEME_NAME${NC}"
@@ -370,15 +370,15 @@ echo -e "${YELLOW}Current GTK theme setting:${NC}"
 gsettings get org.gnome.desktop.interface gtk-theme 2>/dev/null || echo "Could not read gsettings"
 
 echo -e "\n${GREEN}======================================${NC}"
-echo -e "${GREEN}Making Nemo The Default File Manager!${NC}"
+echo -e "${GREEN}Making pcmanfm The Default File Manager!${NC}"
 echo -e "${GREEN}======================================${NC}"
 
-if [ ! -f ~/.local/share/applications/nemo.desktop ]; then
-  echo "Creating nemo.desktop..."
-  cat > ~/.local/share/applications/nemo.desktop <<EOF
+if [ ! -f ~/.local/share/applications/pcmanfm.desktop ]; then
+  echo "Creating pcmanfm.desktop..."
+  cat > ~/.local/share/applications/pcmanfm.desktop <<EOF
 [Desktop Entry]
-Name=Nemo
-Exec=nemo %U
+Name=pcmanfm
+Exec=pcmanfm %U
 Type=Application
 Icon=folder
 Terminal=false
@@ -387,6 +387,6 @@ MimeType=inode/directory;
 EOF
 fi
 
-xdg-mime default nemo.desktop inode/directory
-xdg-settings set default-file-manager nemo.desktop
-echo "Nemo set as default file manager"
+xdg-mime default pcmanfm.desktop inode/directory
+xdg-settings set default-file-manager pcmanfm.desktop
+echo "pcmanfm set as default file manager"

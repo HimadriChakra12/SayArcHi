@@ -9,3 +9,4 @@ sudo systemctl enable ly@tty2.service
 
 echo "Ly installed and enabled."
 
+sudo cp $HOME/.dotfiles/ly/config.ini /etc/ly/ -f
