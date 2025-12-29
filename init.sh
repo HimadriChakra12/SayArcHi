@@ -138,6 +138,8 @@ i3=(
     "noto-fonts"
     "ttf-jetbrains-mono-nerd"
 
+    "yt-dlp"
+
     "brightnessctl"
     "xarchiver"
     "xbindkeys"
