@@ -1,182 +1,177 @@
 #!/usr/bin/env bash
-# 02-create-wine-prefix.sh
-# Create and configure a Wine prefix with basic settings
+# wine-create-prefix.sh - Create a clean Wine prefix
+# Version: 1.0
 set -euo pipefail
 
-# ------------------------
-# Config
-# ------------------------
-WINEPREFIX_DEFAULT="$HOME/.wine-custom"
-WINEARCH_DEFAULT="win64"
+# ============================================================================
+# Configuration
+# ============================================================================
+WINEPREFIX="${1:-$HOME/.wine-custom}"
+PREFIX_NAME="${2:-$(basename "$WINEPREFIX")}"
 
-# ------------------------
-# CLI args
-# ------------------------
-WINEPREFIX="$WINEPREFIX_DEFAULT"
-WINEARCH="$WINEARCH_DEFAULT"
-PREFIX_NAME=""
-OVERWRITE=0
-
-usage() {
+# ============================================================================
+# Usage
+# ============================================================================
+if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
   cat <<EOF
-Usage: $0 [OPTIONS]
+Usage: $0 [PREFIX_PATH] [NAME]
 
-Create and initialize a Wine prefix with basic configuration.
+Create a clean Wine prefix with basic configuration.
 
-OPTIONS:
-  --prefix PATH      Wine prefix path (default: $WINEPREFIX_DEFAULT)
-  --arch ARCH        Architecture: win64 or win32 (default: $WINEARCH_DEFAULT)
-  --name NAME        Friendly name for this prefix
-  --overwrite        Overwrite existing prefix without asking
-  -h, --help         Show this help
+Arguments:
+  PREFIX_PATH    Path to Wine prefix (default: ~/.wine-custom)
+  NAME           Friendly name (default: basename of path)
 
-EXAMPLES:
-  $0 --name photoshop --prefix ~/.wine-photoshop
-  $0 --name gaming --prefix ~/.wine-games --arch win64
+Examples:
+  $0
+  $0 ~/.wine-games "Gaming"
+  $0 ~/.wine-photoshop "Photoshop CS6"
+
 EOF
   exit 0
-}
+fi
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --prefix) WINEPREFIX="$2"; shift 2 ;;
-    --arch) WINEARCH="$2"; shift 2 ;;
-    --name) PREFIX_NAME="$2"; shift 2 ;;
-    --overwrite) OVERWRITE=1; shift ;;
-    -h|--help) usage ;;
-    *) echo "Unknown argument: $1"; usage ;;
-  esac
-done
-
-echo "🍷 Wine Prefix Creator"
-echo "====================="
+echo "╔════════════════════════════════════════╗"
+echo "║   Wine Prefix Creator v1.0             ║"
+echo "╚════════════════════════════════════════╝"
+echo
 echo "Prefix: $WINEPREFIX"
-echo "Architecture: $WINEARCH"
-[[ -n "$PREFIX_NAME" ]] && echo "Name: $PREFIX_NAME"
+echo "Name: $PREFIX_NAME"
 echo
 
-# ------------------------
-# Detect GPU
-# ------------------------
+# ============================================================================
+# GPU Detection
+# ============================================================================
 detect_gpu() {
-  if lspci 2>/dev/null | grep -E "VGA|3D" | head -n1 | grep -qi nvidia; then
+  local gpu_info
+  gpu_info=$(lspci 2>/dev/null | grep -E "VGA|3D" | head -n1 || echo "")
+  
+  if [[ "$gpu_info" =~ [Nn][Vv][Ii][Dd][Ii][Aa] ]]; then
     echo "nvidia"
-  elif lspci 2>/dev/null | grep -qi amd; then
+  elif [[ "$gpu_info" =~ [Aa][Mm][Dd] ]] || [[ "$gpu_info" =~ [Rr][Aa][Dd][Ee][Oo][Nn] ]]; then
     echo "amd"
-  elif lspci 2>/dev/null | grep -qi intel; then
+  elif [[ "$gpu_info" =~ [Ii][Nn][Tt][Ee][Ll] ]]; then
     echo "intel"
   else
     echo "unknown"
   fi
 }
 
-get_vk_icd() {
-  case "$1" in
-    amd) 
-      if [[ -f "/usr/share/vulkan/icd.d/radeon_icd.x86_64.json" ]]; then
-        echo "/usr/share/vulkan/icd.d/radeon_icd.x86_64.json"
-      elif [[ -f "/usr/share/vulkan/icd.d/radeon_icd.json" ]]; then
-        echo "/usr/share/vulkan/icd.d/radeon_icd.json"
-      fi
+get_vulkan_icd() {
+  local gpu="$1"
+  local icd_paths=(
+    "/usr/share/vulkan/icd.d/${gpu}_icd.x86_64.json"
+    "/usr/share/vulkan/icd.d/${gpu}_icd.json"
+  )
+  
+  case "$gpu" in
+    amd)
+      icd_paths+=("/usr/share/vulkan/icd.d/radeon_icd.x86_64.json")
+      icd_paths+=("/usr/share/vulkan/icd.d/radeon_icd.json")
       ;;
-    intel) 
-      if [[ -f "/usr/share/vulkan/icd.d/intel_icd.x86_64.json" ]]; then
-        echo "/usr/share/vulkan/icd.d/intel_icd.x86_64.json"
-      elif [[ -f "/usr/share/vulkan/icd.d/intel_icd.json" ]]; then
-        echo "/usr/share/vulkan/icd.d/intel_icd.json"
-      fi
+    intel)
+      icd_paths+=("/usr/share/vulkan/icd.d/intel_icd.x86_64.json")
+      icd_paths+=("/usr/share/vulkan/icd.d/intel_icd.json")
       ;;
-    nvidia) 
-      if [[ -f "/usr/share/vulkan/icd.d/nvidia_icd.json" ]]; then
-        echo "/usr/share/vulkan/icd.d/nvidia_icd.json"
-      fi
+    nvidia)
+      icd_paths+=("/usr/share/vulkan/icd.d/nvidia_icd.json")
       ;;
   esac
+  
+  for path in "${icd_paths[@]}"; do
+    if [[ -f "$path" ]]; then
+      echo "$path"
+      return
+    fi
+  done
+  
+  echo ""
 }
 
-# ------------------------
+# ============================================================================
 # Check Existing Prefix
-# ------------------------
+# ============================================================================
 if [[ -d "$WINEPREFIX" ]]; then
-  if [[ "$OVERWRITE" -eq 0 ]]; then
-    read -rp "⚠️  Prefix exists. Overwrite? [y/N] " response
-    if [[ ! "$response" =~ ^[Yy]$ ]]; then
-      echo "Aborted."
-      exit 0
-    fi
+  echo "⚠️  Prefix already exists: $WINEPREFIX"
+  read -rp "Overwrite? [y/N] " response
+  if [[ ! "$response" =~ ^[Yy]$ ]]; then
+    echo "Aborted."
+    exit 0
   fi
-  echo "Removing existing prefix..."
   rm -rf "$WINEPREFIX"
 fi
 
-# ------------------------
+# ============================================================================
 # Create Prefix
-# ------------------------
-echo "Creating new Wine prefix..."
-export WINEPREFIX WINEARCH
-export WINEDLLOVERRIDES="mscoree,mshtml="  # Disable mono/gecko prompts
+# ============================================================================
+echo "🍷 Creating Wine prefix..."
+export WINEPREFIX
+export WINEARCH=win64
+export WINEDLLOVERRIDES="mscoree,mshtml="
 
-wineboot --init
+wineboot --init >/dev/null 2>&1
 echo "✅ Prefix initialized"
 
-# ------------------------
-# Install Core Components
-# ------------------------
+# ============================================================================
+# Install Core Fonts
+# ============================================================================
 echo
-echo "Installing core components..."
-winetricks -q corefonts || echo "⚠️  corefonts failed (non-critical)"
+echo "📝 Installing core fonts..."
+winetricks -q corefonts >/dev/null 2>&1 || echo "⚠️  Font installation warning (non-critical)"
+echo "✅ Fonts installed"
 
-# ------------------------
-# Detect GPU & Write Config
-# ------------------------
-GPU="$(detect_gpu)"
-VK_ICD="$(get_vk_icd "$GPU")"
+# ============================================================================
+# Detect GPU & Create Config
+# ============================================================================
+GPU=$(detect_gpu)
+VK_ICD=$(get_vulkan_icd "$GPU")
 
 echo
-echo "Detected GPU: $GPU"
-[[ -n "$VK_ICD" ]] && echo "Vulkan ICD: $VK_ICD"
+echo "🎮 Detected GPU: $GPU"
+[[ -n "$VK_ICD" ]] && echo "📦 Vulkan ICD: $VK_ICD"
 
-# Create config file
-mkdir -p "$WINEPREFIX"
-cat > "$WINEPREFIX/prefix.conf" <<EOF
-# Wine Prefix Configuration
-PREFIX_NAME="${PREFIX_NAME:-$(basename "$WINEPREFIX")}"
-WINEPREFIX="$WINEPREFIX"
-WINEARCH="$WINEARCH"
-GPU_TYPE="$GPU"
-VK_ICD_FILENAMES="$VK_ICD"
-CREATED="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+# Save configuration
+cat > "$WINEPREFIX/prefix-info.txt" <<EOF
+Wine Prefix Configuration
+=========================
+Name: $PREFIX_NAME
+Path: $WINEPREFIX
+Architecture: win64
+GPU: $GPU
+Vulkan ICD: $VK_ICD
+Created: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+Wine Version: $(wine --version 2>/dev/null || echo "unknown")
 EOF
 
-# ------------------------
-# Create Basic Env File
-# ------------------------
+# Create base environment
 cat > "$WINEPREFIX/env.sh" <<EOF
 #!/usr/bin/env bash
-# Basic environment for this Wine prefix
+# Base Wine environment - Source this before running Wine
 export WINEPREFIX="$WINEPREFIX"
-export WINEARCH="$WINEARCH"
+export WINEARCH=win64
 export WINEDEBUG=-all
-
-# GPU-specific
-export SUPERWINE_GPU="$GPU"
+export WINE_GPU="$GPU"
 [[ -n "$VK_ICD" ]] && export VK_ICD_FILENAMES="$VK_ICD"
 EOF
 
 chmod +x "$WINEPREFIX/env.sh"
 
-# ------------------------
+# ============================================================================
 # Summary
-# ------------------------
+# ============================================================================
 echo
-echo "✅ Wine prefix created successfully!"
+echo "╔════════════════════════════════════════╗"
+echo "║  ✅ Wine Prefix Created Successfully   ║"
+echo "╚════════════════════════════════════════╝"
 echo
-echo "Prefix location: $WINEPREFIX"
-echo "Configuration: $WINEPREFIX/prefix.conf"
+echo "Prefix: $WINEPREFIX"
+echo "Config: $WINEPREFIX/prefix-info.txt"
 echo "Environment: $WINEPREFIX/env.sh"
 echo
 echo "Next steps:"
-echo "  1. Source environment: source $WINEPREFIX/env.sh"
-echo "  2. Configure for specific use:"
-echo "     - Gaming: ./03-configure-gaming.sh --prefix $WINEPREFIX"
-echo "     - Photoshop: ./04-configure-photoshop.sh --prefix $WINEPREFIX"
+echo "  1. Configure for gaming: ./wine-setup-gaming.sh $WINEPREFIX"
+echo "  2. Configure for Photoshop: ./wine-setup-photoshop.sh $WINEPREFIX"
+echo
+echo "Or use directly:"
+echo "  source $WINEPREFIX/env.sh"
+echo "  wine program.exe"

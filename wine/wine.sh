@@ -1,124 +1,164 @@
 #!/usr/bin/env bash
-# 01-install-wine-base.sh
-# Base Wine installation with Vulkan support
+# wine-install-base.sh - Complete Wine base installation
+# Version: 1.0
 set -euo pipefail
 
-echo "🍷 Wine Base Installer"
-echo "====================="
+echo "╔════════════════════════════════════════╗"
+echo "║   Wine Base Installer v1.0             ║"
+echo "╚════════════════════════════════════════╝"
+echo
 
-# ------------------------
-# Detect Package Manager
-# ------------------------
+# ============================================================================
+# Package Manager Detection
+# ============================================================================
 detect_pkg_manager() {
-  for pm in pacman apt dnf zypper; do
-    command -v "$pm" >/dev/null && echo "$pm" && return
-  done
-  echo "unknown"
+  if command -v pacman >/dev/null 2>&1; then
+    echo "pacman"
+  elif command -v apt >/dev/null 2>&1; then
+    echo "apt"
+  elif command -v dnf >/dev/null 2>&1; then
+    echo "dnf"
+  elif command -v zypper >/dev/null 2>&1; then
+    echo "zypper"
+  else
+    echo "unknown"
+  fi
 }
 
-# ------------------------
-# Detect GPU
-# ------------------------
+# ============================================================================
+# GPU Detection
+# ============================================================================
 detect_gpu() {
-  if lspci 2>/dev/null | grep -E "VGA|3D" | head -n1 | grep -qi nvidia; then
+  local gpu_info
+  gpu_info=$(lspci 2>/dev/null | grep -E "VGA|3D" | head -n1)
+  
+  if echo "$gpu_info" | grep -qi nvidia; then
     echo "nvidia"
-  elif lspci 2>/dev/null | grep -qi amd; then
+  elif echo "$gpu_info" | grep -qi amd; then
     echo "amd"
-  elif lspci 2>/dev/null | grep -qi intel; then
+  elif echo "$gpu_info" | grep -qi intel; then
     echo "intel"
   else
     echo "unknown"
   fi
 }
 
-# ------------------------
-# Install Dependencies
-# ------------------------
-install_deps() {
-  local pm gpu
-  pm="$(detect_pkg_manager)"
-  gpu="$(detect_gpu)"
+# ============================================================================
+# Installation Functions
+# ============================================================================
+install_arch() {
+  local gpu="$1"
+  echo "📦 Installing for Arch Linux..."
   
-  echo "Package manager: $pm"
+  sudo pacman -Syu --needed --noconfirm \
+    wine-staging \
+    winetricks \
+    lib32-gnutls \
+    lib32-mesa \
+    vulkan-icd-loader \
+    lib32-vulkan-icd-loader \
+    gamemode \
+    lib32-gamemode
+  
+  case "$gpu" in
+    amd)
+      echo "🎮 Installing AMD GPU drivers..."
+      sudo pacman -S --needed --noconfirm \
+        vulkan-radeon lib32-vulkan-radeon \
+        lib32-mesa-vdpau
+      ;;
+    nvidia)
+      echo "🎮 Installing NVIDIA GPU drivers..."
+      sudo pacman -S --needed --noconfirm \
+        nvidia-utils lib32-nvidia-utils \
+        vulkan-icd-loader lib32-vulkan-icd-loader
+      ;;
+    intel)
+      echo "🎮 Installing Intel GPU drivers..."
+      sudo pacman -S --needed --noconfirm \
+        vulkan-intel lib32-vulkan-intel
+      ;;
+  esac
+}
+
+install_debian() {
+  local gpu="$1"
+  echo "📦 Installing for Debian/Ubuntu..."
+  
+  sudo dpkg --add-architecture i386 || true
+  sudo apt update
+  sudo apt install -y \
+    wine64 wine32 winetricks \
+    libvulkan1 libvulkan1:i386 \
+    mesa-vulkan-drivers mesa-vulkan-drivers:i386 \
+    gamemode
+  
+  if [[ "$gpu" == "nvidia" ]]; then
+    sudo apt install -y nvidia-vulkan-icd nvidia-vulkan-icd:i386 || true
+  fi
+}
+
+install_fedora() {
+  local gpu="$1"
+  echo "📦 Installing for Fedora..."
+  
+  sudo dnf install -y \
+    wine winetricks \
+    vulkan-loader vulkan-loader.i686 \
+    mesa-vulkan-drivers mesa-vulkan-drivers.i686 \
+    gamemode
+  
+  if [[ "$gpu" == "nvidia" ]]; then
+    sudo dnf install -y xorg-x11-drv-nvidia-libs.i686 || true
+  fi
+}
+
+install_opensuse() {
+  echo "📦 Installing for openSUSE..."
+  
+  sudo zypper install -y \
+    wine winetricks \
+    libvulkan1 libvulkan1-32bit \
+    gamemode
+}
+
+# ============================================================================
+# Main Installation
+# ============================================================================
+main() {
+  local pkg_mgr gpu
+  
+  # Detect system
+  pkg_mgr=$(detect_pkg_manager)
+  gpu=$(detect_gpu)
+  
+  echo "Detected package manager: $pkg_mgr"
   echo "Detected GPU: $gpu"
   echo
   
-  case "$pm" in
+  # Verify sudo
+  if ! sudo -v; then
+    echo "❌ Error: sudo access required"
+    exit 1
+  fi
+  
+  # Install based on package manager
+  case "$pkg_mgr" in
     pacman)
-      echo "Installing Wine + dependencies for Arch..."
-      sudo pacman -Syu --needed --noconfirm \
-        wine-staging \
-        winetricks \
-        lib32-mesa \
-        vulkan-icd-loader \
-        lib32-vulkan-icd-loader
-      
-      case "$gpu" in
-        amd)
-          sudo pacman -S --needed --noconfirm \
-            vulkan-radeon lib32-vulkan-radeon \
-            lib32-mesa-vdpau
-          ;;
-        nvidia)
-          sudo pacman -S --needed --noconfirm \
-            nvidia-utils lib32-nvidia-utils \
-            vulkan-icd-loader lib32-vulkan-icd-loader
-          ;;
-        intel)
-          sudo pacman -S --needed --noconfirm \
-            vulkan-intel lib32-vulkan-intel
-          ;;
-      esac
-      
-      # Optional performance tools
-      sudo pacman -S --needed --noconfirm gamemode lib32-gamemode || true
+      install_arch "$gpu"
       ;;
-      
     apt)
-      echo "Installing Wine + dependencies for Debian/Ubuntu..."
-      sudo dpkg --add-architecture i386 || true
-      sudo apt update
-      sudo apt install -y \
-        wine64 wine32 winetricks \
-        libvulkan1 libvulkan1:i386 \
-        mesa-vulkan-drivers mesa-vulkan-drivers:i386
-      
-      case "$gpu" in
-        nvidia)
-          sudo apt install -y nvidia-vulkan-icd nvidia-vulkan-icd:i386 || true
-          ;;
-      esac
-      
-      sudo apt install -y gamemode || true
+      install_debian "$gpu"
       ;;
-      
     dnf)
-      echo "Installing Wine + dependencies for Fedora..."
-      sudo dnf install -y \
-        wine winetricks \
-        vulkan-loader vulkan-loader.i686 \
-        mesa-vulkan-drivers mesa-vulkan-drivers.i686
-      
-      case "$gpu" in
-        nvidia)
-          sudo dnf install -y xorg-x11-drv-nvidia-libs.i686 || true
-          ;;
-      esac
-      
-      sudo dnf install -y gamemode || true
+      install_fedora "$gpu"
       ;;
-      
     zypper)
-      echo "Installing Wine + dependencies for openSUSE..."
-      sudo zypper install -y \
-        wine winetricks \
-        libvulkan1 libvulkan1-32bit
-      
-      sudo zypper install -y gamemode || true
+      install_opensuse "$gpu"
       ;;
-      
     *)
-      echo "❌ Unknown package manager!"
+      echo "❌ Error: Unsupported package manager"
+      echo
       echo "Please install manually:"
       echo "  - Wine (wine-staging preferred)"
       echo "  - winetricks"
@@ -126,48 +166,39 @@ install_deps() {
       exit 1
       ;;
   esac
-}
-
-# ------------------------
-# Verify Installation
-# ------------------------
-verify_installation() {
+  
+  # Verify installation
   echo
-  echo "Verifying installation..."
+  echo "🔍 Verifying installation..."
   
   if ! command -v wine >/dev/null; then
-    echo "❌ Wine not found!"
+    echo "❌ Error: Wine installation failed"
     exit 1
   fi
   
   if ! command -v winetricks >/dev/null; then
-    echo "❌ winetricks not found!"
+    echo "❌ Error: winetricks installation failed"
     exit 1
   fi
   
   echo "✅ Wine version: $(wine --version)"
   echo "✅ winetricks installed"
   
-  if command -v vulkaninfo >/dev/null; then
-    echo "✅ Vulkan available: $(vulkaninfo --summary 2>/dev/null | grep -i 'instance version' || echo 'present')"
-  else
-    echo "⚠️  vulkaninfo not found (install vulkan-tools to verify)"
+  if command -v vulkaninfo >/dev/null 2>&1; then
+    local vk_ver
+    vk_ver=$(vulkaninfo --summary 2>/dev/null | grep -i "instance version" | head -1 || echo "installed")
+    echo "✅ Vulkan: $vk_ver"
   fi
-}
-
-# ------------------------
-# Main
-# ------------------------
-main() {
-  sudo -v
-  install_deps
-  verify_installation
   
+  # Success
   echo
-  echo "✅ Base Wine installation complete!"
+  echo "╔════════════════════════════════════════╗"
+  echo "║  ✅ Wine Base Installation Complete    ║"
+  echo "╚════════════════════════════════════════╝"
+  echo
   echo "Next steps:"
-  echo "  1. Run: ./02-create-wine-prefix.sh --help"
-  echo "  2. Configure for gaming or Photoshop"
+  echo "  1. For gaming: ./wine-setup-gaming.sh"
+  echo "  2. For Photoshop: ./wine-setup-photoshop.sh"
 }
 
 main "$@"

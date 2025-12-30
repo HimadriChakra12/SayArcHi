@@ -1,122 +1,155 @@
 #!/usr/bin/env bash
-# 04-configure-photoshop.sh
-# Configure Wine prefix specifically for Adobe Photoshop CS6
+# wine-setup-photoshop.sh - Complete Photoshop CS6 configuration
+# Version: 1.0
 set -euo pipefail
 
-# ------------------------
-# CLI args
-# ------------------------
-WINEPREFIX=""
-INSTALL_DXVK=0
+# ============================================================================
+# Configuration
+# ============================================================================
+WINEPREFIX="${1:-}"
+ENABLE_DXVK=0
 MEMORY_SIZE="2048"
-HISTORY_STATES="20"
 
-usage() {
+# ============================================================================
+# Parse Arguments
+# ============================================================================
+show_usage() {
   cat <<EOF
-Usage: $0 --prefix PATH [OPTIONS]
+Usage: $0 PREFIX [OPTIONS]
 
-Configure a Wine prefix for Adobe Photoshop CS6 with stability optimizations.
+Complete Adobe Photoshop CS6 setup with stability optimizations.
 
-REQUIRED:
-  --prefix PATH      Wine prefix to configure
+Arguments:
+  PREFIX              Wine prefix path (required)
 
-OPTIONS:
-  --with-dxvk       Enable DXVK (experimental, may cause crashes)
-  --memory SIZE     Video memory size in MB (default: 2048)
-  --history NUM     Photoshop history states (default: 20)
-  -h, --help        Show this help
+Options:
+  --with-dxvk        Enable DXVK (experimental, may cause crashes)
+  --memory SIZE      Video memory in MB (default: 2048)
+  -h, --help         Show this help
 
-FEATURES:
-  - Adobe-specific runtime libraries
-  - Stability-focused registry tweaks
-  - Optimized Direct3D settings
-  - Memory management tuning
-  - Crash prevention configurations
+Examples:
+  $0 ~/.wine-photoshop
+  $0 ~/.wine-photoshop --memory 4096
+  $0 /home/himadri/.wine
 
-EXAMPLES:
-  $0 --prefix ~/.wine-photoshop
-  $0 --prefix ~/.wine-photoshop --memory 4096 --history 30
-  $0 --prefix ~/.wine-photoshop --with-dxvk  # experimental
+Notes:
+  - For existing Photoshop installations, just run this on your existing prefix
+  - Supports Photoshop Portable installations
+  - Optimized for stability over performance
+
 EOF
   exit 0
 }
 
+shift || show_usage
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --prefix) WINEPREFIX="$2"; shift 2 ;;
-    --with-dxvk) INSTALL_DXVK=1; shift ;;
+    --with-dxvk) ENABLE_DXVK=1; shift ;;
     --memory) MEMORY_SIZE="$2"; shift 2 ;;
-    --history) HISTORY_STATES="$2"; shift 2 ;;
-    -h|--help) usage ;;
-    *) echo "Unknown argument: $1"; usage ;;
+    -h|--help) show_usage ;;
+    *) echo "Unknown option: $1"; show_usage ;;
   esac
 done
 
 if [[ -z "$WINEPREFIX" ]]; then
-  echo "❌ Error: --prefix is required"
-  usage
+  echo "❌ Error: PREFIX path required"
+  show_usage
 fi
 
 if [[ ! -d "$WINEPREFIX" ]]; then
-  echo "❌ Error: Prefix does not exist: $WINEPREFIX"
-  echo "Create it first with: ./02-create-wine-prefix.sh --prefix $WINEPREFIX"
+  echo "❌ Error: Prefix not found: $WINEPREFIX"
+  echo "Create it first: ./wine-create-prefix.sh $WINEPREFIX"
   exit 1
 fi
 
-echo "🎨 Wine Photoshop CS6 Configuration"
-echo "===================================="
+echo "╔════════════════════════════════════════╗"
+echo "║   Wine Photoshop CS6 Setup v1.0        ║"
+echo "╚════════════════════════════════════════╝"
+echo
 echo "Prefix: $WINEPREFIX"
 echo "Video Memory: ${MEMORY_SIZE}MB"
+[[ "$ENABLE_DXVK" -eq 1 ]] && echo "DXVK: Enabled (experimental)"
 echo
 
 export WINEPREFIX
 
-# ------------------------
-# Install Required Runtimes
-# ------------------------
-echo "Installing Adobe-compatible runtimes..."
+# ============================================================================
+# Check for Existing Photoshop Installation
+# ============================================================================
+PS_PATHS=(
+  "$WINEPREFIX/drive_c/Program Files/Adobe/Adobe Photoshop CS6/Photoshop.exe"
+  "$WINEPREFIX/drive_c/Program Files (x86)/Adobe/Adobe Photoshop CS6/Photoshop.exe"
+  "$WINEPREFIX/drive_c/Program Files/Adobe/Adobe Photoshop CS6 (64 Bit)/Photoshop.exe"
+  "$WINEPREFIX/drive_c/Program Files/PhotoshopPortable/PhotoshopCS6Portable.exe"
+)
+
+FOUND_PS=""
+for path in "${PS_PATHS[@]}"; do
+  if [[ -f "$path" ]]; then
+    FOUND_PS="$path"
+    echo "✅ Found existing Photoshop: $path"
+    break
+  fi
+done
+
+[[ -z "$FOUND_PS" ]] && echo "ℹ️  No Photoshop installation detected (you can install it later)"
+
+# ============================================================================
+# Install Core Fonts
+# ============================================================================
 echo
+echo "📝 Installing core fonts..."
+if ! ls "$WINEPREFIX/drive_c/windows/Fonts/"Arial*.ttf >/dev/null 2>&1; then
+  winetricks -q corefonts >/dev/null 2>&1 || echo "⚠️  Font warning (non-critical)"
+fi
+echo "✅ Fonts installed"
 
-# Core fonts (essential for Photoshop UI)
-echo "Installing fonts..."
-winetricks -q corefonts || echo "⚠️  corefonts warning (non-critical)"
-
-# Visual C++ runtimes (Photoshop CS6 needs these)
-echo "Installing Visual C++ 2008-2013..."
-winetricks -q vcrun2008 vcrun2010 vcrun2012 vcrun2013 || {
-  echo "⚠️  Some VC++ runtimes failed, trying individually..."
+# ============================================================================
+# Install Visual C++ Runtimes
+# ============================================================================
+echo
+echo "📦 Installing Visual C++ runtimes (2008-2013)..."
+winetricks -q vcrun2008 vcrun2010 vcrun2012 vcrun2013 >/dev/null 2>&1 || {
+  echo "⚠️  Some runtimes failed, trying individually..."
   winetricks vcrun2008 2>/dev/null || true
   winetricks vcrun2010 2>/dev/null || true
 }
+echo "✅ Runtimes installed"
 
-# Microsoft XML parsers
-echo "Installing XML libraries..."
-winetricks -q msxml3 msxml6 || true
+# ============================================================================
+# Install XML & Graphics Libraries
+# ============================================================================
+echo
+echo "📦 Installing graphics libraries..."
+winetricks -q msxml3 msxml6 gdiplus atmlib >/dev/null 2>&1 || true
+echo "✅ Graphics libraries installed"
 
-# GDI+ and other graphics libs
-echo "Installing graphics libraries..."
-winetricks -q gdiplus atmlib || true
+# ============================================================================
+# Install DirectX
+# ============================================================================
+echo
+echo "📦 Installing DirectX components..."
+winetricks -q d3dx9 d3dcompiler_43 d3dcompiler_47 >/dev/null 2>&1 || true
+echo "✅ DirectX installed"
 
-# DirectX (minimal, for GPU acceleration)
-echo "Installing DirectX components..."
-winetricks -q d3dx9 d3dcompiler_43 d3dcompiler_47 || true
-
-# ------------------------
+# ============================================================================
 # Optional: DXVK
-# ------------------------
-if [[ "$INSTALL_DXVK" -eq 1 ]]; then
+# ============================================================================
+if [[ "$ENABLE_DXVK" -eq 1 ]]; then
   echo
-  echo "Installing DXVK (experimental for Photoshop)..."
-  echo "⚠️  Note: DXVK may cause instability in Photoshop"
-  winetricks -q dxvk || echo "⚠️  DXVK installation failed"
+  echo "🎮 Installing DXVK (experimental for Photoshop)..."
+  winetricks -q dxvk >/dev/null 2>&1 || echo "⚠️  DXVK installation warning"
+  echo "✅ DXVK installed"
 fi
 
-# ------------------------
-# Registry Tweaks for Stability
-# ------------------------
+# ============================================================================
+# Apply Registry Tweaks
+# ============================================================================
 echo
-echo "Applying Photoshop-optimized registry settings..."
-cat > /tmp/photoshop-tweaks.reg <<REG
+echo "⚙️  Applying Photoshop-optimized registry settings..."
+
+cat > /tmp/wine-photoshop.reg <<REG
 Windows Registry Editor Version 5.00
 
 [HKEY_CURRENT_USER\Software\Wine\Direct3D]
@@ -142,22 +175,28 @@ Windows Registry Editor Version 5.00
 "FontSmoothingGamma"=dword:00000578
 REG
 
-wine regedit /tmp/photoshop-tweaks.reg 2>/dev/null
-rm -f /tmp/photoshop-tweaks.reg
-echo "✅ Registry tweaks applied"
+wine regedit /tmp/wine-photoshop.reg 2>/dev/null
+rm -f /tmp/wine-photoshop.reg
+echo "✅ Registry configured"
 
-# ------------------------
+# ============================================================================
+# Detect GPU
+# ============================================================================
+detect_gpu() {
+  if [[ -f "$WINEPREFIX/prefix-info.txt" ]]; then
+    grep "^GPU:" "$WINEPREFIX/prefix-info.txt" | cut -d: -f2 | tr -d ' '
+  else
+    echo "unknown"
+  fi
+}
+
+GPU=$(detect_gpu)
+
+# ============================================================================
 # Create Photoshop Environment
-# ------------------------
+# ============================================================================
 echo
-echo "Creating Photoshop environment file..."
-
-GPU_TYPE="unknown"
-VK_ICD=""
-if [[ -f "$WINEPREFIX/prefix.conf" ]]; then
-  GPU_TYPE=$(grep "^GPU_TYPE=" "$WINEPREFIX/prefix.conf" | cut -d'"' -f2 || echo "unknown")
-  VK_ICD=$(grep "^VK_ICD_FILENAMES=" "$WINEPREFIX/prefix.conf" | cut -d'"' -f2 || echo "")
-fi
+echo "🔧 Creating Photoshop environment..."
 
 cat > "$WINEPREFIX/photoshop-env.sh" <<EOF
 #!/usr/bin/env bash
@@ -166,19 +205,18 @@ cat > "$WINEPREFIX/photoshop-env.sh" <<EOF
 # Load base environment
 [[ -f "$WINEPREFIX/env.sh" ]] && source "$WINEPREFIX/env.sh"
 
-# Disable debug output for performance
-export WINEDEBUG=-all
-
 # Stability settings
 export STAGING_SHARED_MEMORY=1
-export WINE_CPU_TOPOLOGY=4:0  # Limit to 4 cores for stability
+export WINE_CPU_TOPOLOGY=4:0
+export WINE_HEAP_DELAY_FREE=1
 
-# GPU acceleration settings
 EOF
 
-case "$GPU_TYPE" in
+# GPU-specific optimizations
+case "$GPU" in
   nvidia)
     cat >> "$WINEPREFIX/photoshop-env.sh" <<'EOF'
+# NVIDIA optimizations
 export __GL_THREADED_OPTIMIZATION=1
 export __GL_SHADER_DISK_CACHE=1
 export __GL_SHADER_DISK_CACHE_PATH="$WINEPREFIX/gl_cache"
@@ -187,6 +225,7 @@ EOF
     ;;
   amd)
     cat >> "$WINEPREFIX/photoshop-env.sh" <<'EOF'
+# AMD optimizations
 export mesa_glthread=true
 export AMD_DEBUG=nohyperz
 export RADV_DEBUG=nohiz,nofmask
@@ -194,16 +233,17 @@ EOF
     ;;
   intel)
     cat >> "$WINEPREFIX/photoshop-env.sh" <<'EOF'
+# Intel optimizations
 export mesa_glthread=true
 export INTEL_DEBUG=nofc
 EOF
     ;;
 esac
 
-if [[ "$INSTALL_DXVK" -eq 1 ]]; then
+if [[ "$ENABLE_DXVK" -eq 1 ]]; then
   cat >> "$WINEPREFIX/photoshop-env.sh" <<'EOF'
 
-# DXVK settings (if enabled)
+# DXVK settings
 export DXVK_STATE_CACHE=1
 export DXVK_STATE_CACHE_PATH="$WINEPREFIX/dxvk_cache"
 export DXVK_LOG_LEVEL=none
@@ -211,39 +251,37 @@ export DXVK_HUD=0
 EOF
 fi
 
-cat >> "$WINEPREFIX/photoshop-env.sh" <<'EOF'
-
-# Memory optimization
-export WINE_HEAP_DELAY_FREE=1
-
-# Vulkan ICD
-EOF
-echo "export VK_ICD_FILENAMES=\"$VK_ICD\"" >> "$WINEPREFIX/photoshop-env.sh"
-
 chmod +x "$WINEPREFIX/photoshop-env.sh"
+echo "✅ Environment created"
 
-# ------------------------
+# ============================================================================
 # Create Photoshop Launcher
-# ------------------------
+# ============================================================================
 echo
-echo "Creating Photoshop launcher..."
-LAUNCHER="$WINEPREFIX/run-photoshop.sh"
+echo "🎨 Creating Photoshop launcher..."
 
-cat > "$LAUNCHER" <<'EOF'
+cat > "$WINEPREFIX/run-photoshop" <<'LAUNCHER'
 #!/usr/bin/env bash
-# Adobe Photoshop CS6 launcher
+# Photoshop CS6 launcher
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 source "$SCRIPT_DIR/photoshop-env.sh"
 
-# Default Photoshop installation paths
+# Default paths
 PS_PATHS=(
   "$WINEPREFIX/drive_c/Program Files/Adobe/Adobe Photoshop CS6/Photoshop.exe"
   "$WINEPREFIX/drive_c/Program Files (x86)/Adobe/Adobe Photoshop CS6/Photoshop.exe"
   "$WINEPREFIX/drive_c/Program Files/Adobe/Adobe Photoshop CS6 (64 Bit)/Photoshop.exe"
+  "$WINEPREFIX/drive_c/Program Files/PhotoshopPortable/PhotoshopCS6Portable.exe"
 )
 
-# Find Photoshop executable
+# Check for custom path
+if [[ -f "$SCRIPT_DIR/photoshop-path.txt" ]]; then
+  CUSTOM_PATH=$(cat "$SCRIPT_DIR/photoshop-path.txt")
+  PS_PATHS=("$CUSTOM_PATH" "${PS_PATHS[@]}")
+fi
+
+# Find Photoshop
 PS_EXE=""
 if [[ -n "$1" ]] && [[ -f "$1" ]]; then
   PS_EXE="$1"
@@ -257,135 +295,165 @@ else
 fi
 
 if [[ -z "$PS_EXE" ]]; then
-  echo "❌ Photoshop.exe not found!"
-  echo
-  echo "Please specify the path:"
-  echo "  $0 /path/to/Photoshop.exe"
-  echo
-  echo "Or install Photoshop CS6 to one of these locations:"
+  cat <<HELP
+❌ Photoshop not found!
+
+Options:
+  1. Specify path: $0 /path/to/Photoshop.exe
+  2. Save custom path:
+     echo '/path/to/Photoshop.exe' > $SCRIPT_DIR/photoshop-path.txt
+
+Checked locations:
+HELP
   for path in "${PS_PATHS[@]}"; do
-    echo "  $path"
+    echo "  - $path"
   done
   exit 1
 fi
 
 echo "🎨 Launching Photoshop CS6..."
-echo "Executable: $PS_EXE"
+echo "📂 $PS_EXE"
 echo
-
 exec wine "$PS_EXE" "$@"
-EOF
+LAUNCHER
 
-chmod +x "$LAUNCHER"
+chmod +x "$WINEPREFIX/run-photoshop"
+echo "✅ Launcher created"
 
-# ------------------------
-# Create Photoshop Settings Guide
-# ------------------------
+# ============================================================================
+# Create Settings Guide
+# ============================================================================
 echo
-echo "Creating Photoshop settings guide..."
-cat > "$WINEPREFIX/PHOTOSHOP-SETTINGS.txt" <<EOF
-RECOMMENDED PHOTOSHOP CS6 SETTINGS FOR WINE
-==========================================
+echo "📋 Creating settings guide..."
 
-After launching Photoshop, configure these settings for best stability:
+cat > "$WINEPREFIX/PHOTOSHOP-SETTINGS.txt" <<'SETTINGS'
+╔════════════════════════════════════════════════════════════╗
+║        PHOTOSHOP CS6 SETTINGS FOR WINE                     ║
+╚════════════════════════════════════════════════════════════╝
 
-1. Edit → Preferences → Performance:
-   ✓ Memory Usage: 60-70% (NOT 100%)
-   ✓ History States: $HISTORY_STATES
+CRITICAL SETTINGS (Configure immediately after launching):
+===========================================================
+
+1. Edit → Preferences → Performance
+   ✓ Memory Usage: 60-70% (NOT 100% - causes crashes!)
+   ✓ History States: 20 (lower to 10 if crashes persist)
    ✓ Cache Levels: 4
-   ✓ Graphics Processor: DISABLE if crashes occur
-      - Try enabling OpenGL drawing first
-      - If crashes continue, disable completely
+   ✓ Graphics Processor:
+      • First try: Enable "Use Graphics Processor"
+      • If crashes: DISABLE completely
 
-2. Edit → Preferences → File Handling:
-   ✓ Disable "Save in Background"
-   ✓ Maximize PSD/PSB File Compatibility: Ask or Always
+2. Edit → Preferences → File Handling
+   ✓ DISABLE "Save in Background" (major crash cause)
+   ✓ Maximize PSD Compatibility: Ask or Always
 
-3. Edit → Preferences → Interface:
+3. Edit → Preferences → Interface
    ✓ UI Scaling: 100% (avoid scaling issues)
 
-4. Edit → Preferences → Cursors:
+4. Edit → Preferences → Cursors
    ✓ Painting Cursors: Normal Brush Tip
    ✓ Other Cursors: Standard
 
 TROUBLESHOOTING
 ===============
 
-If Photoshop crashes:
-  1. Disable GPU acceleration (see Performance settings above)
-  2. Reduce Memory Usage to 50%
-  3. Lower History States to 10
-  4. Disable "Save in Background"
+Problem: Photoshop crashes frequently
+→ Disable GPU (Performance preferences)
+→ Reduce Memory Usage to 50-60%
+→ Lower History States to 10
+→ Disable "Save in Background"
 
-If UI appears broken:
-  1. Check font installation: winetricks corefonts
-  2. Reset workspace: Window → Workspace → Reset Essentials
+Problem: Slow performance
+→ Work on ext4 filesystem (not NTFS/FAT32)
+→ Close unused documents
+→ Purge regularly: Edit → Purge → All
 
-If file operations are slow:
-  1. Work on native Linux partition (ext4), not NTFS
-  2. Disable antivirus if running in Wine
+Problem: UI appears broken
+→ Reset workspace: Window → Workspace → Reset Essentials
+→ Reinstall fonts: winetricks corefonts
+→ Check UI scaling is 100%
 
-Performance tips:
-  - Keep file sizes reasonable (<2GB)
-  - Use Smart Objects sparingly
-  - Purge clipboard/history regularly: Edit → Purge
-  - Close unused documents
+Problem: Tools/panels missing
+→ Window → Workspace → Reset Essentials
+→ Window → Show all menus
 
-Known limitations:
-  - Some plugins may not work
-  - Camera Raw might be unstable (use DNG Converter)
-  - 3D features are limited/unstable
-  - Some filters may crash (test before production work)
-EOF
+KNOWN LIMITATIONS
+=================
+• Some plugins may not work
+• Camera Raw might be unstable
+• 3D features are limited/unstable
+• Some filters may crash (test before production)
 
-# ------------------------
+PERFORMANCE TIPS
+================
+• Keep file sizes under 2GB
+• Use Smart Objects sparingly
+• Purge clipboard/history regularly
+• Work on native Linux filesystem (ext4)
+• Close unused documents
+• Disable background save
+
+CUSTOM INSTALLATION PATH
+========================
+If Photoshop is in a custom location:
+  echo '/path/to/Photoshop.exe' > photoshop-path.txt
+
+For Portable version at different location:
+  echo '$WINEPREFIX/drive_c/Custom/Path/PhotoshopCS6Portable.exe' > photoshop-path.txt
+SETTINGS
+
+echo "✅ Settings guide created"
+
+# ============================================================================
+# Save Photoshop Path if Found
+# ============================================================================
+if [[ -n "$FOUND_PS" ]]; then
+  echo "$FOUND_PS" > "$WINEPREFIX/photoshop-path.txt"
+  echo "✅ Photoshop path saved"
+fi
+
+# ============================================================================
 # System Check
-# ------------------------
+# ============================================================================
 echo
-echo "Checking system resources..."
+echo "🔍 Checking system resources..."
 
-TOTAL_RAM=$(free -g | awk '/^Mem:/{print $2}')
+TOTAL_RAM=$(free -g 2>/dev/null | awk '/^Mem:/{print $2}' || echo "0")
 if [[ "$TOTAL_RAM" -lt 4 ]]; then
-  echo "⚠️  Low RAM detected: ${TOTAL_RAM}GB"
-  echo "   Photoshop CS6 needs at least 4GB, 8GB+ recommended"
+  echo "⚠️  Low RAM: ${TOTAL_RAM}GB (recommend 8GB+ for Photoshop)"
 fi
 
-# Check GPU
-if ! command -v vulkaninfo >/dev/null 2>&1; then
-  echo "⚠️  vulkaninfo not found - install vulkan-tools to verify GPU"
-fi
-
-# ------------------------
+# ============================================================================
 # Summary
-# ------------------------
+# ============================================================================
 echo
-echo "✅ Photoshop CS6 configuration complete!"
+echo "╔════════════════════════════════════════╗"
+echo "║  ✅ Photoshop CS6 Setup Complete!      ║"
+echo "╚════════════════════════════════════════╝"
 echo
-echo "Files created:"
-echo "  $WINEPREFIX/photoshop-env.sh"
-echo "  $WINEPREFIX/run-photoshop.sh"
-echo "  $WINEPREFIX/PHOTOSHOP-SETTINGS.txt"
+echo "Components installed:"
+echo "  ✅ Visual C++ Runtimes (2008-2013)"
+echo "  ✅ Graphics libraries (GDI+, MSXML)"
+echo "  ✅ DirectX components"
+echo "  ✅ Core fonts"
+[[ "$ENABLE_DXVK" -eq 1 ]] && echo "  ✅ DXVK (experimental)"
 echo
-echo "Next steps:"
-echo "  1. Install Photoshop CS6:"
-echo "     wine $WINEPREFIX/setup.exe"
-echo
-echo "  2. Launch Photoshop:"
-echo "     $WINEPREFIX/run-photoshop.sh"
-echo
-echo "  3. Configure settings (see PHOTOSHOP-SETTINGS.txt)"
-echo
-echo "  4. READ SETTINGS GUIDE:"
-echo "     cat $WINEPREFIX/PHOTOSHOP-SETTINGS.txt"
-echo
-
-if [[ "$INSTALL_DXVK" -eq 1 ]]; then
-  echo "⚠️  DXVK is enabled (experimental)"
-  echo "   If you experience crashes, reconfigure without --with-dxvk"
+if [[ -n "$FOUND_PS" ]]; then
+  echo "Launch Photoshop:"
+  echo "  $WINEPREFIX/run-photoshop"
+else
+  echo "Install Photoshop:"
+  echo "  1. source $WINEPREFIX/photoshop-env.sh"
+  echo "  2. wine /path/to/Photoshop_CS6_Setup.exe"
   echo
+  echo "Then launch:"
+  echo "  $WINEPREFIX/run-photoshop"
 fi
-
-echo "Troubleshooting:"
-echo "  - If crashes: Disable GPU in Photoshop preferences"
-echo "  - If slow: Check you're on native Linux filesystem (not NTFS)"
-echo "  - If UI broken: Run 'winetricks corefonts' again"
+echo
+echo "📋 IMPORTANT: Read settings guide!"
+echo "   cat $WINEPREFIX/PHOTOSHOP-SETTINGS.txt"
+echo
+echo "Critical settings to configure in Photoshop:"
+echo "  • Memory Usage: 60-70%"
+echo "  • History States: 20"
+echo "  • Disable 'Save in Background'"
+echo "  • Try disabling GPU if crashes occur"

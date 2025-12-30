@@ -1,116 +1,133 @@
 #!/usr/bin/env bash
-# 03-configure-gaming.sh
-# Configure Wine prefix for gaming with DXVK, VKD3D, and performance tweaks
+# wine-setup-gaming.sh - Complete gaming configuration with DXVK, VKD3D, and resolution management
+# Version: 1.0
 set -euo pipefail
 
-# ------------------------
-# CLI args
-# ------------------------
-WINEPREFIX=""
-INSTALL_DXVK=1
-INSTALL_VKD3D=1
-INSTALL_GAMEMODE=1
-ASYNC_DXVK=1
+# ============================================================================
+# Configuration
+# ============================================================================
+WINEPREFIX="${1:-}"
+RESOLUTION=""
+VIRTUAL_DESKTOP=""
+SKIP_DXVK=0
+SKIP_ASYNC=0
 
-usage() {
+# ============================================================================
+# Parse Arguments
+# ============================================================================
+show_usage() {
   cat <<EOF
-Usage: $0 --prefix PATH [OPTIONS]
+Usage: $0 PREFIX [OPTIONS]
 
-Configure a Wine prefix for optimal gaming performance.
+Complete gaming setup with DXVK, VKD3D, and performance optimizations.
 
-REQUIRED:
-  --prefix PATH      Wine prefix to configure
+Arguments:
+  PREFIX                 Wine prefix path (required)
 
-OPTIONS:
-  --no-dxvk         Skip DXVK installation
-  --no-vkd3d        Skip VKD3D installation
-  --no-gamemode     Skip GameMode configuration
-  --no-async        Disable DXVK async shader compilation
-  -h, --help        Show this help
+Options:
+  --resolution WxH       Set default resolution (e.g., 1920x1080)
+  --virtual WxH          Enable virtual desktop mode
+  --no-dxvk             Skip DXVK installation (not recommended)
+  --no-async            Disable DXVK async shaders
+  -h, --help            Show this help
 
-FEATURES:
-  - DXVK (DirectX 9/10/11 to Vulkan)
-  - VKD3D-Proton (DirectX 12 to Vulkan)
-  - DXVK async shader compilation
-  - GameMode integration
-  - Performance registry tweaks
-  - Esync/Fsync configuration
+Examples:
+  $0 ~/.wine-games
+  $0 ~/.wine-games --resolution 1920x1080
+  $0 ~/.wine-games --virtual 2560x1440
+  $0 ~/.wine-fps --resolution 1280x720 --no-async
 
-EXAMPLES:
-  $0 --prefix ~/.wine-games
-  $0 --prefix ~/.wine-games --no-async
 EOF
   exit 0
 }
 
+shift || show_usage
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --prefix) WINEPREFIX="$2"; shift 2 ;;
-    --no-dxvk) INSTALL_DXVK=0; shift ;;
-    --no-vkd3d) INSTALL_VKD3D=0; shift ;;
-    --no-gamemode) INSTALL_GAMEMODE=0; shift ;;
-    --no-async) ASYNC_DXVK=0; shift ;;
-    -h|--help) usage ;;
-    *) echo "Unknown argument: $1"; usage ;;
+    --resolution) RESOLUTION="$2"; shift 2 ;;
+    --virtual|--virtual-desktop) VIRTUAL_DESKTOP="$2"; shift 2 ;;
+    --no-dxvk) SKIP_DXVK=1; shift ;;
+    --no-async) SKIP_ASYNC=1; shift ;;
+    -h|--help) show_usage ;;
+    *) echo "Unknown option: $1"; show_usage ;;
   esac
 done
 
 if [[ -z "$WINEPREFIX" ]]; then
-  echo "❌ Error: --prefix is required"
-  usage
+  echo "❌ Error: PREFIX path required"
+  show_usage
 fi
 
 if [[ ! -d "$WINEPREFIX" ]]; then
-  echo "❌ Error: Prefix does not exist: $WINEPREFIX"
-  echo "Create it first with: ./02-create-wine-prefix.sh --prefix $WINEPREFIX"
+  echo "❌ Error: Prefix not found: $WINEPREFIX"
+  echo "Create it first: ./wine-create-prefix.sh $WINEPREFIX"
   exit 1
 fi
 
-echo "🎮 Wine Gaming Configuration"
-echo "============================"
+echo "╔════════════════════════════════════════╗"
+echo "║   Wine Gaming Setup v1.0               ║"
+echo "╚════════════════════════════════════════╝"
+echo
 echo "Prefix: $WINEPREFIX"
+[[ -n "$RESOLUTION" ]] && echo "Resolution: $RESOLUTION"
+[[ -n "$VIRTUAL_DESKTOP" ]] && echo "Virtual Desktop: $VIRTUAL_DESKTOP"
 echo
 
 export WINEPREFIX
 
-# ------------------------
+# ============================================================================
 # Install Visual C++ Runtimes
-# ------------------------
-echo "Installing Visual C++ runtimes (required for most games)..."
-winetricks -q vcrun2019 || echo "⚠️  vcrun2019 failed (trying individual versions)"
-winetricks -q vcrun2015 vcrun2017 2>/dev/null || true
+# ============================================================================
+echo "📦 Installing Visual C++ runtimes..."
+winetricks -q vcrun2019 >/dev/null 2>&1 || {
+  echo "⚠️  vcrun2019 failed, trying individual versions..."
+  winetricks vcrun2015 vcrun2017 2>/dev/null || true
+}
+echo "✅ Runtimes installed"
 
-# ------------------------
+# ============================================================================
 # Install DirectX
-# ------------------------
+# ============================================================================
 echo
-echo "Installing DirectX components..."
-winetricks -q d3dx9 d3dcompiler_43 d3dcompiler_47 || true
+echo "📦 Installing DirectX components..."
+winetricks -q d3dx9 d3dcompiler_43 d3dcompiler_47 >/dev/null 2>&1 || true
+echo "✅ DirectX installed"
 
-# ------------------------
-# Install DXVK
-# ------------------------
-if [[ "$INSTALL_DXVK" -eq 1 ]]; then
+# ============================================================================
+# Install DXVK & VKD3D
+# ============================================================================
+if [[ "$SKIP_DXVK" -eq 0 ]]; then
   echo
-  echo "Installing DXVK (DirectX 9/10/11 → Vulkan)..."
-  winetricks -q dxvk || echo "⚠️  DXVK installation failed"
+  echo "🎮 Installing DXVK (DirectX 9/10/11 → Vulkan)..."
+  winetricks -q dxvk >/dev/null 2>&1 || echo "⚠️  DXVK installation warning"
+  echo "✅ DXVK installed"
+  
+  echo
+  echo "🎮 Installing VKD3D-Proton (DirectX 12 → Vulkan)..."
+  winetricks -q vkd3d >/dev/null 2>&1 || echo "⚠️  VKD3D installation warning"
+  echo "✅ VKD3D installed"
 fi
 
-# ------------------------
-# Install VKD3D
-# ------------------------
-if [[ "$INSTALL_VKD3D" -eq 1 ]]; then
-  echo
-  echo "Installing VKD3D-Proton (DirectX 12 → Vulkan)..."
-  winetricks -q vkd3d || echo "⚠️  VKD3D installation failed"
+# ============================================================================
+# Apply Registry Tweaks
+# ============================================================================
+echo
+echo "⚙️  Applying performance registry tweaks..."
+
+# Validate resolution format
+if [[ -n "$RESOLUTION" ]] && [[ ! "$RESOLUTION" =~ ^[0-9]+x[0-9]+$ ]]; then
+  echo "⚠️  Invalid resolution format: $RESOLUTION (expected WIDTHxHEIGHT)"
+  RESOLUTION=""
 fi
 
-# ------------------------
-# Registry Tweaks
-# ------------------------
-echo
-echo "Applying registry tweaks for gaming..."
-cat > /tmp/gaming-tweaks.reg <<'REG'
+if [[ -n "$VIRTUAL_DESKTOP" ]] && [[ ! "$VIRTUAL_DESKTOP" =~ ^[0-9]+x[0-9]+$ ]]; then
+  echo "⚠️  Invalid virtual desktop format: $VIRTUAL_DESKTOP"
+  VIRTUAL_DESKTOP=""
+fi
+
+# Base registry settings
+cat > /tmp/wine-gaming.reg <<'REG'
 Windows Registry Editor Version 5.00
 
 [HKEY_CURRENT_USER\Software\Wine\Direct3D]
@@ -129,26 +146,56 @@ Windows Registry Editor Version 5.00
 [HKEY_CURRENT_USER\Software\Wine\X11 Driver]
 "UseTakeFocus"="N"
 "GrabFullscreen"="Y"
+"ScreenDepth"="32"
 REG
 
-wine regedit /tmp/gaming-tweaks.reg 2>/dev/null
-rm -f /tmp/gaming-tweaks.reg
-echo "✅ Registry tweaks applied"
+# Add virtual desktop settings
+if [[ -n "$VIRTUAL_DESKTOP" ]]; then
+  cat >> /tmp/wine-gaming.reg <<REG
 
-# ------------------------
-# Create Gaming Environment
-# ------------------------
-echo
-echo "Creating gaming environment file..."
+[HKEY_CURRENT_USER\Software\Wine\Explorer]
+"Desktop"="shell"
 
-GPU_TYPE="unknown"
-if [[ -f "$WINEPREFIX/prefix.conf" ]]; then
-  GPU_TYPE=$(grep "^GPU_TYPE=" "$WINEPREFIX/prefix.conf" | cut -d'"' -f2)
+[HKEY_CURRENT_USER\Software\Wine\Explorer\Desktops]
+"shell"="$VIRTUAL_DESKTOP"
+REG
+elif [[ -n "$RESOLUTION" ]]; then
+  cat >> /tmp/wine-gaming.reg <<REG
+
+[HKEY_CURRENT_USER\Software\Wine\Explorer]
+"Desktop"="Default"
+
+[HKEY_CURRENT_USER\Software\Wine\Explorer\Desktops]
+"Default"="$RESOLUTION"
+REG
 fi
+
+wine regedit /tmp/wine-gaming.reg 2>/dev/null
+rm -f /tmp/wine-gaming.reg
+echo "✅ Registry configured"
+
+# ============================================================================
+# Detect GPU
+# ============================================================================
+detect_gpu() {
+  if [[ -f "$WINEPREFIX/prefix-info.txt" ]]; then
+    grep "^GPU:" "$WINEPREFIX/prefix-info.txt" | cut -d: -f2 | tr -d ' '
+  else
+    echo "unknown"
+  fi
+}
+
+GPU=$(detect_gpu)
+
+# ============================================================================
+# Create Gaming Environment
+# ============================================================================
+echo
+echo "🔧 Creating gaming environment..."
 
 cat > "$WINEPREFIX/gaming-env.sh" <<EOF
 #!/usr/bin/env bash
-# Gaming-optimized environment for Wine
+# Gaming-optimized environment
 
 # Load base environment
 [[ -f "$WINEPREFIX/env.sh" ]] && source "$WINEPREFIX/env.sh"
@@ -162,28 +209,26 @@ export STAGING_WRITECOPY=1
 # DXVK
 export DXVK_STATE_CACHE=1
 export DXVK_STATE_CACHE_PATH="\$WINEPREFIX/dxvk_cache"
+export DXVK_LOG_LEVEL=none
 EOF
 
-if [[ "$ASYNC_DXVK" -eq 1 ]]; then
-  cat >> "$WINEPREFIX/gaming-env.sh" <<EOF
-export DXVK_ASYNC=1
-EOF
+if [[ "$SKIP_ASYNC" -eq 0 ]]; then
+  echo 'export DXVK_ASYNC=1' >> "$WINEPREFIX/gaming-env.sh"
 fi
 
-cat >> "$WINEPREFIX/gaming-env.sh" <<EOF
-export DXVK_LOG_LEVEL=none
-export DXVK_HUD=compiler
+cat >> "$WINEPREFIX/gaming-env.sh" <<'EOF'
 
 # VKD3D
 export VKD3D_CONFIG=dxr
-export VKD3D_SHADER_CACHE_PATH="\$WINEPREFIX/vkd3d_cache"
+export VKD3D_SHADER_CACHE_PATH="$WINEPREFIX/vkd3d_cache"
 
-# GPU-specific optimizations
 EOF
 
-case "$GPU_TYPE" in
+# GPU-specific optimizations
+case "$GPU" in
   nvidia)
     cat >> "$WINEPREFIX/gaming-env.sh" <<'EOF'
+# NVIDIA optimizations
 export __GL_THREADED_OPTIMIZATION=1
 export __GL_SHADER_DISK_CACHE=1
 export __GL_SHADER_DISK_CACHE_PATH="$WINEPREFIX/gl_cache"
@@ -192,6 +237,7 @@ EOF
     ;;
   amd)
     cat >> "$WINEPREFIX/gaming-env.sh" <<'EOF'
+# AMD optimizations
 export mesa_glthread=true
 export AMD_DEBUG=nohyperz
 export RADV_PERFTEST=aco,sam,gpl
@@ -199,50 +245,94 @@ EOF
     ;;
   intel)
     cat >> "$WINEPREFIX/gaming-env.sh" <<'EOF'
+# Intel optimizations
 export mesa_glthread=true
 export INTEL_DEBUG=nofc
 EOF
     ;;
 esac
 
-cat >> "$WINEPREFIX/gaming-env.sh" <<'EOF'
-
-# CPU topology (adjust if needed)
-# export WINE_CPU_TOPOLOGY=8:0  # 8 cores
-
-# Disable debug output
-export WINEDEBUG=-all
-export DXVK_LOG_LEVEL=none
-
-# Gamemode
-export LD_PRELOAD=""  # Clear first
-if command -v gamemoderun >/dev/null 2>&1; then
-  export GAMEMODE=1
-fi
-EOF
-
 chmod +x "$WINEPREFIX/gaming-env.sh"
+echo "✅ Environment created"
 
-# ------------------------
-# Create Launch Wrapper
-# ------------------------
+# ============================================================================
+# Create Game Launcher
+# ============================================================================
 echo
-echo "Creating game launcher wrapper..."
-LAUNCHER="$WINEPREFIX/run-game.sh"
+echo "🚀 Creating game launcher..."
 
-cat > "$LAUNCHER" <<'EOF'
+cat > "$WINEPREFIX/run-game" <<'LAUNCHER'
 #!/usr/bin/env bash
-# Game launcher with GameMode support
+# Game launcher with resolution control
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 source "$SCRIPT_DIR/gaming-env.sh"
 
+# Parse options
+RESOLUTION=""
+VIRTUAL_DESKTOP=""
+FULLSCREEN=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -r|--resolution)
+      RESOLUTION="$2"
+      shift 2
+      ;;
+    -v|--virtual|--virtual-desktop)
+      VIRTUAL_DESKTOP="$2"
+      shift 2
+      ;;
+    -f|--fullscreen)
+      FULLSCREEN=1
+      shift
+      ;;
+    -h|--help)
+      cat <<HELP
+Usage: $0 [OPTIONS] <game.exe> [game args...]
+
+OPTIONS:
+  -r, --resolution WxH   Set resolution (e.g., 1920x1080)
+  -v, --virtual WxH      Virtual desktop mode
+  -f, --fullscreen       Force fullscreen
+  -h, --help             Show help
+
+EXAMPLES:
+  $0 game.exe
+  $0 -r 1920x1080 game.exe
+  $0 -v 2560x1440 game.exe
+HELP
+      exit 0
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
 if [[ -z "$1" ]]; then
-  echo "Usage: $0 <game.exe> [args...]"
+  echo "Usage: $0 [OPTIONS] <game.exe>"
+  echo "Run with -h for help"
   exit 1
 fi
 
-# Use gamemode if available
+# Apply resolution
+if [[ -n "$VIRTUAL_DESKTOP" ]]; then
+  export WINE_EXPLORER_DESKTOP=shell
+  export WINE_EXPLORER_DESKTOP_SIZE="$VIRTUAL_DESKTOP"
+  echo "🖥️  Virtual desktop: $VIRTUAL_DESKTOP"
+elif [[ -n "$RESOLUTION" ]]; then
+  export WINE_GAME_RESOLUTION="$RESOLUTION"
+  echo "🎮 Resolution: $RESOLUTION"
+fi
+
+if [[ "$FULLSCREEN" -eq 1 ]]; then
+  unset WINE_EXPLORER_DESKTOP
+  unset WINE_EXPLORER_DESKTOP_SIZE
+  echo "🖼️  Fullscreen mode"
+fi
+
+# Launch with GameMode if available
 if command -v gamemoderun >/dev/null 2>&1; then
   echo "🚀 Launching with GameMode..."
   exec gamemoderun wine "$@"
@@ -250,51 +340,149 @@ else
   echo "🚀 Launching game..."
   exec wine "$@"
 fi
-EOF
+LAUNCHER
 
-chmod +x "$LAUNCHER"
+chmod +x "$WINEPREFIX/run-game"
+echo "✅ Launcher created"
 
-# ------------------------
-# System Limits Check
-# ------------------------
+# ============================================================================
+# Create Resolution Manager
+# ============================================================================
 echo
-echo "Checking system limits for esync/fsync..."
+echo "🖥️  Creating resolution manager..."
+
+cat > "$WINEPREFIX/set-resolution" <<'RESMGR'
+#!/usr/bin/env bash
+# Resolution manager
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+source "$SCRIPT_DIR/gaming-env.sh"
+
+case "${1:-}" in
+  --help|-h|"")
+    cat <<HELP
+Resolution Manager
+
+Usage: $0 <COMMAND> [RESOLUTION]
+
+Commands:
+  set WxH        Set resolution (e.g., 1920x1080)
+  virtual WxH    Enable virtual desktop
+  fullscreen     Disable virtual desktop
+  auto           Auto-detect native resolution
+  current        Show current settings
+
+Examples:
+  $0 set 1920x1080
+  $0 virtual 2560x1440
+  $0 auto
+HELP
+    exit 0
+    ;;
+  set)
+    RES="$2"
+    cat > /tmp/res.reg <<REG
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Wine\Explorer]
+"Desktop"="Default"
+
+[HKEY_CURRENT_USER\Software\Wine\Explorer\Desktops]
+"Default"="$RES"
+REG
+    wine regedit /tmp/res.reg 2>/dev/null
+    rm /tmp/res.reg
+    echo "✅ Resolution set to $RES"
+    ;;
+  virtual)
+    RES="$2"
+    cat > /tmp/res.reg <<REG
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Wine\Explorer]
+"Desktop"="shell"
+
+[HKEY_CURRENT_USER\Software\Wine\Explorer\Desktops]
+"shell"="$RES"
+REG
+    wine regedit /tmp/res.reg 2>/dev/null
+    rm /tmp/res.reg
+    echo "✅ Virtual desktop enabled at $RES"
+    ;;
+  fullscreen)
+    cat > /tmp/res.reg <<'REG'
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Wine\Explorer]
+"Desktop"=-
+REG
+    wine regedit /tmp/res.reg 2>/dev/null
+    rm /tmp/res.reg
+    echo "✅ Virtual desktop disabled (fullscreen mode)"
+    ;;
+  auto)
+    if command -v xrandr >/dev/null 2>&1; then
+      RES=$(xrandr | grep '\*' | awk '{print $1}' | head -n1)
+      $0 set "$RES"
+    else
+      echo "❌ Cannot detect resolution (xrandr not found)"
+      exit 1
+    fi
+    ;;
+  current)
+    echo "Current settings for: $WINEPREFIX"
+    wine reg query "HKCU\\Software\\Wine\\Explorer" /v Desktop 2>/dev/null || echo "Mode: Fullscreen"
+    ;;
+  *)
+    echo "Unknown command: $1"
+    $0 --help
+    ;;
+esac
+RESMGR
+
+chmod +x "$WINEPREFIX/set-resolution"
+echo "✅ Resolution manager created"
+
+# ============================================================================
+# Check System Limits
+# ============================================================================
+echo
+echo "🔍 Checking system configuration..."
+
 CURRENT_LIMIT=$(ulimit -Hn)
 if [[ "$CURRENT_LIMIT" -lt 524288 ]]; then
   echo "⚠️  File descriptor limit is low: $CURRENT_LIMIT"
-  echo "For better performance, increase it:"
-  echo
-  echo "  Add to /etc/security/limits.conf:"
-  echo "    $USER hard nofile 524288"
-  echo
-  echo "  Or run: sudo sh -c 'echo \"$USER hard nofile 524288\" >> /etc/security/limits.conf'"
-  echo "  Then log out and back in."
+  echo "    For better performance, increase it:"
+  echo "    sudo sh -c 'echo \"$USER hard nofile 524288\" >> /etc/security/limits.conf'"
+  echo "    Then log out and back in."
 else
-  echo "✅ File descriptor limit is sufficient: $CURRENT_LIMIT"
+  echo "✅ File descriptor limit OK: $CURRENT_LIMIT"
 fi
 
-# ------------------------
+# ============================================================================
 # Summary
-# ------------------------
+# ============================================================================
 echo
-echo "✅ Gaming configuration complete!"
+echo "╔════════════════════════════════════════╗"
+echo "║  ✅ Gaming Setup Complete!             ║"
+echo "╚════════════════════════════════════════╝"
 echo
-echo "Components installed:"
-[[ "$INSTALL_DXVK" -eq 1 ]] && echo "  ✅ DXVK (DirectX 9/10/11)"
-[[ "$INSTALL_VKD3D" -eq 1 ]] && echo "  ✅ VKD3D-Proton (DirectX 12)"
+echo "Installed components:"
+[[ "$SKIP_DXVK" -eq 0 ]] && echo "  ✅ DXVK (DirectX 9/10/11)"
+[[ "$SKIP_DXVK" -eq 0 ]] && echo "  ✅ VKD3D-Proton (DirectX 12)"
 echo "  ✅ Visual C++ Runtimes"
 echo "  ✅ DirectX libraries"
+[[ "$SKIP_ASYNC" -eq 0 ]] && echo "  ✅ DXVK async enabled"
+[[ -n "$RESOLUTION" ]] && echo "  ✅ Resolution: $RESOLUTION"
+[[ -n "$VIRTUAL_DESKTOP" ]] && echo "  ✅ Virtual Desktop: $VIRTUAL_DESKTOP"
 echo
-echo "Environment files:"
-echo "  $WINEPREFIX/gaming-env.sh"
-echo "  $WINEPREFIX/run-game.sh"
+echo "Launch games:"
+echo "  $WINEPREFIX/run-game game.exe"
+echo "  $WINEPREFIX/run-game -r 1920x1080 game.exe"
+echo "  $WINEPREFIX/run-game -v 2560x1440 game.exe"
 echo
-echo "Usage examples:"
-echo "  # Launch game with optimizations:"
-echo "  $WINEPREFIX/run-game.sh /path/to/game.exe"
+echo "Manage resolution:"
+echo "  $WINEPREFIX/set-resolution set 1920x1080"
+echo "  $WINEPREFIX/set-resolution virtual 2560x1440"
+echo "  $WINEPREFIX/set-resolution auto"
 echo
-echo "  # Or manually:"
-echo "  source $WINEPREFIX/gaming-env.sh"
-echo "  wine /path/to/game.exe"
-echo
-[[ "$ASYNC_DXVK" -eq 1 ]] && echo "Note: DXVK async is enabled for faster shader compilation"
