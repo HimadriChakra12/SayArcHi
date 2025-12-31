@@ -80,6 +80,7 @@ shell=(
     "7zip"
     "zoxide"
     "btop"
+    "starship"
 )
 i3=(
     "i3-wm"
