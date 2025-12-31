@@ -88,6 +88,7 @@ i3=(
     "i3lock"
     "i3status"
     "wlctl-bin"
+    "bluetui"
     "dbus"
 
     "redshift"
