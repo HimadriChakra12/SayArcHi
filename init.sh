@@ -167,6 +167,7 @@ packages=(
     "qemu"
     "jdownloader2"
     "qbittorrent"
+    "lollypop"
 )
 
 
