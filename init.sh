@@ -63,7 +63,7 @@ echo -e "${GREEN}Installing Packages!${NC}"
 echo -e "${GREEN}======================================${NC}"
 
 langs=(
-    "rust"
+    "rustup"
     "cmake"
     "make"
     "gcc"
@@ -100,6 +100,7 @@ i3=(
     "ffmpeg"
     "wf-recorder"
     "libnotify"
+    "rofi-greenclip"
 
     "acpi"
     "arandr"
@@ -168,6 +169,7 @@ packages=(
     "jdownloader2"
     "qbittorrent"
     "lollypop"
+    "localsend"
 )
 
 
