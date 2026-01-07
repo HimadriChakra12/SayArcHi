@@ -1,57 +1,88 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-yay -S --noconfirm firefox
+# -----------------------------
+# Install Firefox (Arch only)
+# -----------------------------
+if ! command -v firefox &>/dev/null; then
+    yay -S --noconfirm firefox
+fi
 
-read -p "Wanna Add The Dots? [y/n]: " ch
+read -rp "Wanna Add The Dots? [y/n]: " ch
+[[ "$ch" != "y" ]] && exit 0
 
-if [[ "$ch" == "y" ]]; then
-    read -p "What's the path of your Firefox profile: " path
+read -rp "What's the path of your Firefox profile: " path
 
-    echo "
+if [[ ! -d "$path" ]]; then
+    echo "Invalid Firefox profile path"
+    exit 1
+fi
+
+# Remove old chrome folder if exists
+if [[ -d "$path/chrome" ]]; then
+    rm -rf "$path/chrome"
+fi
+
+cd $path
+echo "
 Which Theme You want to install:
 1. Him-Ultima
 2. Say-O-Fox
 3. Dot
 "
-    read -p "Choose [1-3]: " opt
+read -rp "Choose [1-3]: " opt
 
-    if [[ "$opt" == "1" ]]; then
-        curl -sL "https://raw.githubusercontent.com/HimadriChakra12/HIM-ULTIMA/refs/heads/main/ffultima.sh" | bash
-
-    elif [[ "$opt" == "2" ]]; then
-        echo "Still in building"
-
-    elif [[ "$opt" == "3" ]]; then
+case "$opt" in
+    1)
+        echo "Installing Him-Ultima..."
+        curl -fsSL \
+          https://raw.githubusercontent.com/HimadriChakra12/HIM-ULTIMA/main/ffultima.sh \
+          | bash
+        ;;
+    2)
+        echo "Say-O-Fox is still under development"
+        ;;
+    3)
+        echo "Installing Dot theme..."
         mkdir -p "$path/chrome"
 
-        dotfiles=(
-            "$HOME/.dotfiles/firefox/userChrome.css:$path/chrome/userChrome.css"
-            "$HOME/.dotfiles/firefox/user.js:$path/user.js"
+        declare -A dotfiles=(
+            ["$HOME/.dotfiles/firefox/userChrome.css"]="$path/chrome/userChrome.css"
+            ["$HOME/.dotfiles/firefox/user.js"]="$path/user.js"
         )
 
-        echo "Linking dotfiles..."
-        for entry in "${dotfiles[@]}"; do
-            src="${entry%%:*}"
-            tgt="${entry##*:}"
+        for src in "${!dotfiles[@]}"; do
+            tgt="${dotfiles[$src]}"
             echo "Linking $src → $tgt"
             rm -rf "$tgt"
             ln -sf "$src" "$tgt"
         done
-    else
+        ;;
+    *)
+        echo "Invalid choice"
         exit 0
-    fi
-else
-    exit 0
+        ;;
+esac
+
+# -----------------------------
+# Firefox policies (Arch)
+# -----------------------------
+if [[ -f "$HOME/.dotfiles/firefox/policies.json" ]]; then
+    sudo mkdir -p /usr/lib/firefox/distribution
+    sudo cp "$HOME/.dotfiles/firefox/policies.json" \
+        /usr/lib/firefox/distribution/
 fi
 
-sudo cp "$HOME/.dotfiles/firefox/policies.json" /usr/lib/firefox/distribution
-
-echo "Creating local .desktop entries if missing..."
+# -----------------------------
+# Desktop entry
+# -----------------------------
+echo "Ensuring local .desktop entry exists..."
 mkdir -p ~/.local/share/applications
 
-if [[ ! -f ~/.local/share/applications/firefox.desktop ]]; then
-    cat > ~/.local/share/applications/firefox.desktop <<EOF
+DESKTOP_FILE="$HOME/.local/share/applications/firefox.desktop"
+
+if [[ ! -f "$DESKTOP_FILE" ]]; then
+    cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Name=Firefox
 Exec=firefox %u
@@ -65,4 +96,4 @@ EOF
 fi
 
 xdg-settings set default-web-browser firefox.desktop
-echo "Firefox set as default browser"
+echo "Firefox set as default browser ✅"

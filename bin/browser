@@ -1,0 +1,7 @@
+#!/bin/bash
+
+setsid chromium \
+  --app="$1" \
+  --new-window \
+  "${@:2}" \
+  >/dev/null 2>&1 &

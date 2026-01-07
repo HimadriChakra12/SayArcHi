@@ -70,6 +70,7 @@ langs=(
     "golang"
 )
 shell=(
+    "cmus"
     "curl"
     "github-cli"
     "lazygit"
@@ -170,6 +171,7 @@ packages=(
     "qbittorrent"
     "lollypop"
     "localsend"
+    "chromium"
 )
 
 
