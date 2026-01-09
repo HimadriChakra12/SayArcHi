@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+
+shopt -s nullglob
+
+# ---- find cover images ----
+covers=( *.jpg *.jpeg *.png *.webp *.bmp )
+
+if [ ${#covers[@]} -eq 0 ]; then
+  echo "no cover images found"
+  exit 1
+fi
+
+# ---- select one cover ----
+if [ ${#covers[@]} -eq 1 ]; then
+  cover="${covers[0]}"
+else
+  cover=$(printf "%s\n" "${covers[@]}" | fzf --prompt="select cover image (esc = first): ")
+  status=$?
+
+  if [ $status -eq 130 ] || [ -z "$cover" ]; then
+    cover="${covers[0]}"
+  fi
+fi
+
+echo "using cover: $cover"
+
+# ---- find audio files ----
+audio_files=( *.mp3 *.m4a *.flac *.opus *.ogg *.wav )
+
+if [ ${#audio_files[@]} -eq 0 ]; then
+  echo "no audio files found"
+  exit 1
+fi
+
+# ---- select audio files ----
+mapfile -t selected < <(
+  printf "%s\n" "${audio_files[@]}" |
+  fzf -m --prompt="select audio files (esc = all): "
+)
+status=$?
+
+if [ $status -eq 130 ] || [ ${#selected[@]} -eq 0 ]; then
+  selected=( "${audio_files[@]}" )
+fi
+
+# ---- apply cover ----
+for file in "${selected[@]}"; do
+  ext="${file##*.}"
+  tmp="${file%.*}.tmp.$ext"
+
+  case "$ext" in
+    mp3)
+      ffmpeg -y \
+        -i "$file" -i "$cover" \
+        -map 0:a -map 1:v \
+        -c copy \
+        -id3v2_version 3 \
+        -metadata:s:v title="Album cover" \
+        -metadata:s:v comment="Cover (front)" \
+        "$tmp"
+      ;;
+    m4a)
+      ffmpeg -y \
+        -i "$file" -i "$cover" \
+        -map 0:a -map 1:v \
+        -c copy \
+        -disposition:v:0 attached_pic \
+        "$tmp"
+      ;;
+    flac|opus|ogg)
+      ffmpeg -y \
+        -i "$file" -i "$cover" \
+        -map 0:a -map 1:v \
+        -c copy \
+        -metadata:s:v title="Album cover" \
+        -metadata:s:v comment="Cover (front)" \
+        "$tmp"
+      ;;
+    wav)
+      ffmpeg -y \
+        -i "$file" -i "$cover" \
+        -map 0:a -map 1:v \
+        -c copy \
+        "$tmp"
+      ;;
+    *)
+      echo "skipping unsupported file: $file"
+      continue
+      ;;
+  esac
+
+  mv "$tmp" "$file"
+done
+
+echo "done."

@@ -17,8 +17,10 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
+
 sudo pacman -Syu
 sudo pacman -S --needed base-devel git
+sudo pacman -S --needed flatpak
 
 if [ -d "$HOME/sayarchi" ]; then
     cd $HOME/sayarchi
@@ -43,6 +45,7 @@ scripts=(
   "ly:$HOME/sayarchi/package/ly.sh"
   "pcmanfm:$HOME/sayarchi/package/pcmanfm.sh"
   "spotify:$HOME/sayarchi/package/spotify.sh"
+  "reflactor:$HOME/sayarchi/package/reflactor.sh"
 )
 
 echo "Installing Packages"
@@ -83,6 +86,11 @@ shell=(
     "btop"
     "starship"
 )
+flatpak=(
+    "com.github.tchx84.Flatseal"
+    "it.mijorus.gearlever"
+    "com.github.wwmm.easyeffects"
+)
 i3=(
     "i3-wm"
     "i3blocks"
@@ -102,6 +110,7 @@ i3=(
     "wf-recorder"
     "libnotify"
     "rofi-greenclip"
+    "alsa-utils"
 
     "acpi"
     "arandr"
@@ -199,7 +208,10 @@ echo -e "${GREEN}======================================${NC}"
 
 yay -S --noconfirm "${packages[@]}"
 
-
+echo -e "\n${GREEN}======================================${NC}"
+echo -e "${GREEN}Installing Flatpak Packages!${NC}"
+echo -e "${GREEN}======================================${NC}"
+flatpak install "${flatpak[@]}"
 
 
 echo "
