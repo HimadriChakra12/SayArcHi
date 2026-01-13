@@ -485,125 +485,136 @@ EOF
 # ============================================================================
 # Create Game Launcher
 # ============================================================================
-show_progress "Creating game launcher and utilities"
-
 cat > "$WINEPREFIX/run-game" <<'LAUNCHER'
 #!/usr/bin/env bash
-# Game launcher with full resolution and performance control
-# Version: 2.0
+# Game launcher with Windows version selector
+# Version: 2.1
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 source "$SCRIPT_DIR/gaming-env.sh"
 
-# Parse options
+# ============================================================================
+# Variables
+# ============================================================================
 RESOLUTION=""
 VIRTUAL_DESKTOP=""
 FULLSCREEN=0
 FPS_LIMIT=""
 VSYNC=0
+WINVER=""
+
+# ============================================================================
+# Helpers
+# ============================================================================
+set_windows_version() {
+  local version="$1"
+
+  cat > /tmp/winver.reg <<REG
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\\Software\\Wine]
+"Version"="$version"
+REG
+
+  wine regedit /tmp/winver.reg >/dev/null 2>&1
+  rm -f /tmp/winver.reg
+
+  echo "🪟 Windows version: $version"
+}
 
 show_help() {
   cat <<HELP
-Game Launcher v2.0
+Game Launcher v2.1
 
-Usage: $0 [OPTIONS] <game.exe> [game args...]
+Usage:
+  $0 [OPTIONS] <game.exe> [game args...]
 
-Resolution Options:
-  -r, --resolution WxH      Set resolution (e.g., 1920x1080)
-  -v, --virtual WxH         Virtual desktop mode
-  -f, --fullscreen          Force fullscreen
+Resolution:
+  -r, --resolution WxH
+  -v, --virtual WxH
+  -f, --fullscreen
 
-Performance Options:
-  --fps-limit N             Limit FPS (e.g., 60, 144)
-  --vsync                   Enable VSync
-  --no-async                Disable DXVK async
-  --gamemode                Force GameMode (auto-detected)
+Performance:
+  --fps-limit N
+  --vsync
+  --no-async
+  --dxvk-hud <preset>
+  --debug
 
-Debug Options:
-  --debug                   Enable debug output
-  --dxvk-hud <preset>       Show DXVK HUD (fps, devinfo, full)
+Windows Version:
+  --winxp
+  --winvista
+  --win7
+  --win10
+  --win11
 
 Examples:
-  $0 game.exe
-  $0 -r 1920x1080 --fps-limit 60 game.exe
-  $0 -v 2560x1440 --vsync game.exe
-  $0 --dxvk-hud fps --fullscreen game.exe +connect server.com
-
+  $0 --win7 game.exe
+  $0 --win10 --fps-limit 60 game.exe
+  $0 --win11 --fullscreen game.exe
 HELP
   exit 0
 }
 
+# ============================================================================
+# Argument Parsing
+# ============================================================================
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -r|--resolution)
-      RESOLUTION="$2"
-      shift 2
-      ;;
+      RESOLUTION="$2"; shift 2 ;;
     -v|--virtual|--virtual-desktop)
-      VIRTUAL_DESKTOP="$2"
-      shift 2
-      ;;
+      VIRTUAL_DESKTOP="$2"; shift 2 ;;
     -f|--fullscreen)
-      FULLSCREEN=1
-      shift
-      ;;
+      FULLSCREEN=1; shift ;;
     --fps-limit)
-      FPS_LIMIT="$2"
-      shift 2
-      ;;
+      FPS_LIMIT="$2"; shift 2 ;;
     --vsync)
-      VSYNC=1
-      shift
-      ;;
+      VSYNC=1; shift ;;
     --no-async)
-      export DXVK_ASYNC=0
-      shift
-      ;;
-    --gamemode)
-      FORCE_GAMEMODE=1
-      shift
-      ;;
+      export DXVK_ASYNC=0; shift ;;
+    --dxvk-hud)
+      export DXVK_HUD="$2"; shift 2 ;;
     --debug)
       export WINEDEBUG=+timestamp,+fps
       export DXVK_LOG_LEVEL=info
-      shift
-      ;;
-    --dxvk-hud)
-      export DXVK_HUD="$2"
-      shift 2
-      ;;
+      shift ;;
+    --winxp) WINVER="winxp"; shift ;;
+    --winvista) WINVER="winvista"; shift ;;
+    --win7) WINVER="win7"; shift ;;
+    --win10) WINVER="win10"; shift ;;
+    --win11) WINVER="win11"; shift ;;
     -h|--help)
-      show_help
-      ;;
+      show_help ;;
     *)
-      break
-      ;;
+      break ;;
   esac
 done
 
 if [[ -z "$1" ]]; then
-  echo "❌ Error: No game executable specified"
-  echo
+  echo "❌ No executable specified"
   show_help
 fi
 
-# Apply FPS limit
+# ============================================================================
+# Apply Settings
+# ============================================================================
+[[ -n "$WINVER" ]] && set_windows_version "$WINVER"
+
 if [[ -n "$FPS_LIMIT" ]]; then
   export DXVK_FRAME_RATE="$FPS_LIMIT"
   echo "🎯 FPS limit: $FPS_LIMIT"
 fi
 
-# Apply VSync
 if [[ "$VSYNC" -eq 1 ]]; then
   export __GL_SYNC_TO_VBLANK=1
-  echo "🔄 VSync: Enabled"
+  echo "🔄 VSync enabled"
 fi
 
-# Apply resolution
 if [[ -n "$VIRTUAL_DESKTOP" ]]; then
   export WINE_EXPLORER_DESKTOP=shell
   export WINE_EXPLORER_DESKTOP_SIZE="$VIRTUAL_DESKTOP"
-  echo "🖥️  Virtual desktop: $VIRTUAL_DESKTOP"
+  echo "🖥️ Virtual desktop: $VIRTUAL_DESKTOP"
 elif [[ -n "$RESOLUTION" ]]; then
   export WINE_GAME_RESOLUTION="$RESOLUTION"
   echo "🎮 Resolution: $RESOLUTION"
@@ -612,20 +623,20 @@ fi
 if [[ "$FULLSCREEN" -eq 1 ]]; then
   unset WINE_EXPLORER_DESKTOP
   unset WINE_EXPLORER_DESKTOP_SIZE
-  echo "🖼️  Fullscreen mode"
+  echo "🖼️ Fullscreen"
 fi
 
-# Check for GameMode
+# ============================================================================
+# Launch
+# ============================================================================
 if command -v gamemoderun >/dev/null 2>&1; then
-  echo "🚀 Launching with GameMode + MangoHud (if available)..."
+  echo "🚀 Launching with GameMode"
   if command -v mangohud >/dev/null 2>&1; then
     exec gamemoderun mangohud wine "$@"
   else
     exec gamemoderun wine "$@"
   fi
 else
-  echo "🚀 Launching game..."
-  echo "💡 Tip: Install gamemode for better performance"
   exec wine "$@"
 fi
 LAUNCHER

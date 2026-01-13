@@ -1,6 +1,18 @@
 #!/bin/bash
+set -e
 
-setsid chromium \
+if command -v microsoft-edge-stable >/dev/null; then
+    BROW=microsoft-edge-stable
+    command -v notify-send >/dev/null && notify-send "Using Edge"
+elif command -v chromium >/dev/null; then
+    BROW=chromium
+    command -v notify-send >/dev/null && notify-send "Using Chromium"
+else
+    echo "No supported browser found (Edge or Chromium)."
+    exit 1
+fi
+
+setsid "$BROW" \
   --app="$1" \
   --new-window \
   "${@:2}" \

@@ -1,4 +1,4 @@
-echo "
+echo "in
 
 ███████╗ █████╗ ██╗   ██╗ █████╗ ██████╗  ██████╗██╗  ██╗██╗
 ██╔════╝██╔══██╗╚██╗ ██╔╝██╔══██╗██╔══██╗██╔════╝██║  ██║██║
@@ -48,7 +48,7 @@ scripts=(
   "reflactor:$HOME/sayarchi/package/reflactor.sh"
 )
 
-echo "Installing Packages"
+echo "Running Scripts"
 for entry in "${scripts[@]}"; do
     name="${entry%%:*}"
     script="${entry##*:}"
@@ -105,12 +105,13 @@ i3=(
     "wezterm"
     "mpv"
     "feh"
-    "rofi"
     "ffmpeg"
     "wf-recorder"
     "libnotify"
-    "rofi-greenclip"
     "alsa-utils"
+
+    "rofi"
+    "rofi-greenclip"
 
     "acpi"
     "arandr"
@@ -119,13 +120,9 @@ i3=(
     "awesome-terminal-fonts"
     "dex"
 
-    "dmenu"
     "dunst"
 
     "eos-settings-i3wm"
-    "endeavouros-xfce4-terminal-colors"
-    "eos-lightdm-slick-theme"
-    "eos-qogir-icons"
 
     "galculator"
     "gvfs"
@@ -168,19 +165,19 @@ i3=(
     "xorg-xrandr"
     "xorg-fonts-misc"
     "xorg-xsetroot"
-    "xterm"
     "pavucontrol"
     "xclip"
 )
 packages=(
     "qimgv"
+    "ibus-avro-git"
     "mpv"
     "qemu"
     "jdownloader2"
     "qbittorrent"
     "lollypop"
     "localsend"
-    "chromium"
+    "microsoft-edge-stable-bin"
 )
 
 
