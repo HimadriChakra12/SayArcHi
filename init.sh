@@ -85,6 +85,7 @@ shell=(
     "zoxide"
     "btop"
     "starship"
+    "zsh"
 )
 flatpak=(
     "com.github.tchx84.Flatseal"

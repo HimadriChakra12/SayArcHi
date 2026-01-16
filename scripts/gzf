@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+set -e
+
+BAT_CMD=$(command -v bat >/dev/null && echo "bat --style=plain --color=always" || echo "cat")
+
+is_git_repo() {
+  git rev-parse --is-inside-work-tree &>/dev/null
+}
+
+toggle_stage() {
+  for file in "$@"; do
+    if git diff --cached --quiet -- "$file"; then
+      git add "$file"
+    else
+      git restore --staged "$file"
+    fi
+  done
+}
+
+select_files() {
+  git status --short |
+    fzf --multi \
+        --prompt="Select files > " \
+        --preview 'echo {} | cut -c4- | xargs -I{} git diff --color=always {} | '"$BAT_CMD" \
+        --preview-window=down:70%
+}
+
+show_diff_table() {
+  clear
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo " CHANGES"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  for f in "$@"; do
+    echo
+    echo "▶ $f"
+    git diff --color=always "$f" | $BAT_CMD
+  done
+  echo
+}
+
+commit_flow() {
+  while true; do
+    read -rp "Commit message: " MSG
+
+    if [[ "$MSG" == "CHANGE" ]]; then
+      echo "Re-select files (toggle stage)"
+      mapfile -t FILES < <(select_files | awk '{print substr($0,4)}')
+      toggle_stage "${FILES[@]}"
+      continue
+    fi
+
+    git commit -m "$MSG"
+    break
+  done
+}
+
+post_commit_menu() {
+  ACTION=$(printf "push\nreword\ndrop\nnothing" | fzf --prompt="After commit > ")
+
+  case "$ACTION" in
+    push)
+      git push
+      ;;
+    reword)
+      git commit --amend
+      ;;
+    drop)
+      read -rp "Drop commit? y/N: " CONFIRM
+      if [[ "$CONFIRM" == "y" ]]; then
+        git reset --hard HEAD~1
+        echo "Commit dropped."
+      else
+        echo "Canceled."
+      fi
+      ;;
+    *)
+      ;;
+  esac
+}
+
+### MAIN ###
+
+is_git_repo || { echo "Not a git repo"; exit 1; }
+
+mapfile -t SELECTED < <(select_files | awk '{print substr($0,4)}')
+
+[[ ${#SELECTED[@]} -eq 0 ]] && exit 0
+
+toggle_stage "${SELECTED[@]}"
+show_diff_table "${SELECTED[@]}"
+commit_flow
+post_commit_menu
+
