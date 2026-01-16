@@ -3,8 +3,119 @@ set -e
 
 BAT_CMD=$(command -v bat >/dev/null && echo "bat --style=plain --color=always" || echo "cat")
 
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+RESET='\033[0m'
+
 is_git_repo() {
   git rev-parse --is-inside-work-tree &>/dev/null
+}
+
+get_branch() {
+  git branch --show-current
+}
+
+backup_changes() {
+  local backup_dir=".git-backups/$(date +%Y%m%d_%H%M%S)"
+  mkdir -p "$backup_dir"
+  
+  git diff --name-only | while read -r file; do
+    if [[ -f "$file" ]]; then
+      mkdir -p "$backup_dir/$(dirname "$file")"
+      cp "$file" "$backup_dir/$file"
+    fi
+  done
+  
+  echo -e "${GREEN}✓${RESET} Backup created at: $backup_dir"
+}
+
+pull_with_backup() {
+  local branch=$(get_branch)
+  
+  # Fetch to check for updates
+  echo -e "${CYAN}Checking for remote updates...${RESET}"
+  git fetch
+  
+  # Check if there are commits to pull
+  local local_commit=$(git rev-parse @)
+  local remote_commit=$(git rev-parse @{u} 2>/dev/null || echo "")
+  
+  if [[ -z "$remote_commit" ]]; then
+    echo -e "${YELLOW}No upstream branch set${RESET}"
+    return
+  fi
+  
+  if [[ "$local_commit" == "$remote_commit" ]]; then
+    echo -e "${GREEN}✓${RESET} Already up to date"
+    return
+  fi
+  
+  # Show what will be pulled
+  echo -e "${YELLOW}Remote changes available:${RESET}"
+  echo
+  git log HEAD..@{u} --oneline --color=always | head -10
+  echo
+  
+  local commits_behind=$(git rev-list --count HEAD..@{u})
+  echo -e "${CYAN}$commits_behind commit(s) behind remote${RESET}"
+  echo
+  
+  echo -e "${CYAN}Pull these changes?${RESET} (y/N): "
+  read -r PULL_CHOICE
+  
+  if [[ "$PULL_CHOICE" == "y" ]]; then
+    # Check if there are local changes
+    if ! git diff-index --quiet HEAD --; then
+      echo -e "${YELLOW}Local changes detected. Creating backup...${RESET}"
+      backup_changes
+      
+      # Stash changes
+      git stash push -m "Auto-stash before pull $(date +%Y%m%d_%H%M%S)"
+      
+      # Pull
+      echo -e "${CYAN}Pulling...${RESET}"
+      if git pull; then
+        echo -e "${GREEN}✓${RESET} Pull successful"
+        
+        # Try to apply stash
+        if git stash list | grep -q "Auto-stash"; then
+          echo -e "${CYAN}Attempting to restore local changes...${RESET}"
+          if ! git stash pop; then
+            echo -e "${RED}✗${RESET} Conflicts detected!"
+            echo -e "${YELLOW}Choose resolution method:${RESET}"
+            echo "  1) Keep local changes (your version)"
+            echo "  2) Keep remote changes (their version)"
+            echo "  3) Open all conflicted files in nvim"
+            read -rp "Choice [1-3]: " CONFLICT_CHOICE
+            
+            case "$CONFLICT_CHOICE" in
+              1)
+                git checkout --ours .
+                git add -u
+                ;;
+              2)
+                git checkout --theirs .
+                git add -u
+                ;;
+              3)
+                git diff --name-only --diff-filter=U | xargs nvim
+                ;;
+            esac
+          fi
+        fi
+      else
+        echo -e "${RED}✗${RESET} Pull failed"
+        git stash pop
+      fi
+    else
+      git pull
+    fi
+  fi
 }
 
 toggle_stage() {
@@ -25,52 +136,80 @@ select_files() {
         --preview-window=down:70%
 }
 
-show_diff_table() {
+show_staged_preview() {
   clear
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo " CHANGES"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  for f in "$@"; do
-    echo
-    echo "▶ $f"
-    git diff --color=always "$f" | $BAT_CMD
+  local branch=$(get_branch)
+  echo -e "${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo -e "${CYAN} Branch: ${YELLOW}$branch${RESET}"
+  echo -e "${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo
+  
+  if git diff --cached --quiet; then
+    echo -e "${YELLOW}No files staged${RESET}"
+    return
+  fi
+  
+  echo -e "${GREEN}Staged files:${RESET}"
+  git diff --cached --name-status | while read -r status file; do
+    case "$status" in
+      M) echo -e "  ${YELLOW}●${RESET} $file" ;;
+      A) echo -e "  ${GREEN}+${RESET} $file" ;;
+      D) echo -e "  ${RED}-${RESET} $file" ;;
+      *) echo -e "  ${BLUE}?${RESET} $file" ;;
+    esac
   done
+  echo
+  echo -e "${CYAN}Changes:${RESET}"
+  echo
+  git diff --cached --color=always | $BAT_CMD
   echo
 }
 
 commit_flow() {
   while true; do
-    read -rp "Commit message: " MSG
-
+    show_staged_preview
+    read -rp "$(echo -e "${GREEN}Commit message${RESET} (or CHANGE/EDIT): ")" MSG
+    
     if [[ "$MSG" == "CHANGE" ]]; then
-      echo "Re-select files (toggle stage)"
+      echo -e "${CYAN}Re-selecting files...${RESET}"
       mapfile -t FILES < <(select_files | awk '{print substr($0,4)}')
+      [[ ${#FILES[@]} -eq 0 ]] && continue
       toggle_stage "${FILES[@]}"
       continue
     fi
-
+    
+    if [[ "$MSG" == "EDIT" ]]; then
+      echo -e "${CYAN}Opening interactive staging...${RESET}"
+      git add -i
+      continue
+    fi
+    
+    if [[ -z "$MSG" ]]; then
+      echo -e "${RED}Commit message cannot be empty${RESET}"
+      continue
+    fi
+    
     git commit -m "$MSG"
+    echo -e "${GREEN}✓${RESET} Committed"
     break
   done
 }
 
 post_commit_menu() {
-  ACTION=$(printf "push\nreword\ndrop\nnothing" | fzf --prompt="After commit > ")
-
+  ACTION=$(printf "push\nreword\ndrop\nnothing" | fzf --prompt="After commit > " --height=6)
   case "$ACTION" in
     push)
-      git push
+      echo -e "${CYAN}Pushing...${RESET}"
+      git push && echo -e "${GREEN}✓${RESET} Pushed"
       ;;
     reword)
       git commit --amend
       ;;
     drop)
-      read -rp "Drop commit? y/N: " CONFIRM
+      read -rp "$(echo -e "${RED}Drop commit?${RESET} (y/N): ")" CONFIRM
       if [[ "$CONFIRM" == "y" ]]; then
         git reset --hard HEAD~1
-        echo "Commit dropped."
-      else
-        echo "Canceled."
+        echo -e "${YELLOW}Commit dropped${RESET}"
       fi
       ;;
     *)
@@ -79,15 +218,20 @@ post_commit_menu() {
 }
 
 ### MAIN ###
+is_git_repo || { echo -e "${RED}Not a git repo${RESET}"; exit 1; }
 
-is_git_repo || { echo "Not a git repo"; exit 1; }
+# Pull with backup
+pull_with_backup
 
+# Select files
 mapfile -t SELECTED < <(select_files | awk '{print substr($0,4)}')
-
 [[ ${#SELECTED[@]} -eq 0 ]] && exit 0
 
+# Stage files
 toggle_stage "${SELECTED[@]}"
-show_diff_table "${SELECTED[@]}"
-commit_flow
-post_commit_menu
 
+# Show preview and commit
+commit_flow
+
+# Post-commit actions
+post_commit_menu
