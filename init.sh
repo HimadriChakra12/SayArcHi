@@ -46,6 +46,9 @@ scripts=(
   "pcmanfm:$HOME/sayarchi/package/pcmanfm.sh"
   "spotify:$HOME/sayarchi/package/spotify.sh"
   "reflactor:$HOME/sayarchi/package/reflactor.sh"
+  "docker:$HOME/sayarchi/package/docker.sh"
+  "devbox:$HOME/sayarchi/package/devbox.sh"
+  "monkey:$HOME/sayarchi/setups/monkeytype.sh"
 )
 
 echo "Running Scripts"
