@@ -36,6 +36,8 @@ echo -e "${GREEN}==================${NC}"
 git clone https://github.com/HimadriChakra12/.dotfiles.git ~/.dotfiles
 bash ~/.dotfiles/dots.sh
 
+git clone https://github.com/HimadriChakra12/himstart.nvim ~/.config/nvim
+
 #!/usr/bin/env bash
 set -e # exit if any script fails
 
