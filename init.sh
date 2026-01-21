@@ -37,18 +37,18 @@ git clone https://github.com/HimadriChakra12/.dotfiles.git ~/.dotfiles
 bash ~/.dotfiles/dots.sh
 
 #!/usr/bin/env bash
-set -e  # exit if any script fails
+set -e # exit if any script fails
 
 scripts=(
-  "AUR-Helpers:$HOME/sayarchi/package/AUR.sh"
-  "firefox:$HOME/sayarchi/package/firefox.sh"
-  "ly:$HOME/sayarchi/package/ly.sh"
-  "pcmanfm:$HOME/sayarchi/package/pcmanfm.sh"
-  "spotify:$HOME/sayarchi/package/spotify.sh"
-  "reflactor:$HOME/sayarchi/package/reflactor.sh"
-  "docker:$HOME/sayarchi/package/docker.sh"
-  "devbox:$HOME/sayarchi/package/devbox.sh"
-  "monkey:$HOME/sayarchi/setups/monkeytype.sh"
+    "AUR-Helpers:$HOME/sayarchi/package/AUR.sh"
+    "firefox:$HOME/sayarchi/package/firefox.sh"
+    "ly:$HOME/sayarchi/package/ly.sh"
+    "pcmanfm:$HOME/sayarchi/package/pcmanfm.sh"
+    "spotify:$HOME/sayarchi/package/spotify.sh"
+    "reflactor:$HOME/sayarchi/package/reflactor.sh"
+    "docker:$HOME/sayarchi/package/docker.sh"
+    "devbox:$HOME/sayarchi/package/devbox.sh"
+    "monkey:$HOME/sayarchi/setups/monkeytype.sh"
 )
 
 echo "Running Scripts"
@@ -74,6 +74,8 @@ langs=(
     "make"
     "gcc"
     "golang"
+    "python"
+    "python-pipx"
 )
 shell=(
     "cmus"
@@ -184,7 +186,6 @@ packages=(
     "microsoft-edge-stable-bin"
 )
 
-
 echo -e "\n${GREEN}======================================${NC}"
 echo -e "${GREEN}Installing Language Packages!${NC}"
 echo -e "${GREEN}======================================${NC}"
@@ -214,7 +215,6 @@ echo -e "${GREEN}Installing Flatpak Packages!${NC}"
 echo -e "${GREEN}======================================${NC}"
 flatpak install "${flatpak[@]}"
 
-
 echo "
 Defaulting Apps
 ---------------
@@ -222,22 +222,22 @@ Defaulting Apps
 
 echo "Creating ~/.xinitrc if missing..."
 if [ ! -f ~/.xinitrc ]; then
-  echo "exec i3" > ~/.xinitrc
-  echo "~/.xinitrc created with 'exec i3'"
+    echo "exec i3" >~/.xinitrc
+    echo "~/.xinitrc created with 'exec i3'"
 else
-  echo "~/.xinitrc already exists. Make sure it has 'exec i3'"
+    echo "~/.xinitrc already exists. Make sure it has 'exec i3'"
 fi
 
 echo "Setting Qimgv as default image viewer..."
 for mime in image/jpeg image/png image/gif image/webp image/svg+xml; do
-  xdg-mime default qimgv.desktop "$mime"
+    xdg-mime default qimgv.desktop "$mime"
 done
 echo "Setting MPV as default video player..."
 for mime in video/mp4 video/x-matroska video/x-msvideo video/webm; do
-  xdg-mime default mpv.desktop "$mime"
+    xdg-mime default mpv.desktop "$mime"
 done
 echo "Setting Lollypop as default music player..."
 for mime in audio/mpeg audio/x-wav audio/ogg audio/flac; do
-  xdg-mime default lollypop.desktop "$mime"
+    xdg-mime default lollypop.desktop "$mime"
 done
 echo "All defaults configured successfully!"
