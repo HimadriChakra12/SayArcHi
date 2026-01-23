@@ -1,0 +1,37 @@
+#!/bin/bash
+
+OPTIONS=$(
+    cat <<EOF
+llama3.1:8b
+mistral
+phi3
+EOF
+)
+
+CHOICE=$(echo "$OPTIONS" | fzf \
+    --header "🧠 Focus Lock — Choose Your Model" \
+    --layout=reverse \
+    --height=50% \
+    --border)
+
+[ -z "$CHOICE" ] && exit 0
+
+# Per-model tuning
+case "$CHOICE" in
+llama3.1:8b)
+    export OLLAMA_NUM_CTX=4096
+    export OLLAMA_TEMPERATURE=0.7
+    ;;
+mistral)
+    export OLLAMA_NUM_CTX=4096
+    export OLLAMA_TEMPERATURE=0.6
+    ;;
+phi3)
+    export OLLAMA_NUM_CTX=2048
+    export OLLAMA_TEMPERATURE=0.5
+    ;;
+esac
+
+echo "🚀 Running $CHOICE (ctx=$OLLAMA_NUM_CTX, temp=$OLLAMA_TEMPERATURE)"
+
+ollama run "$CHOICE"
