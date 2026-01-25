@@ -102,7 +102,7 @@ flatpak=(
 i3=(
     "i3-wm"
     "i3blocks"
-    "i3lock"
+    "i3lock-color"
     "i3status"
     "wlctl-bin"
     "bluetui"
