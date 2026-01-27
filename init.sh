@@ -18,6 +18,8 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+sudo timedatectl set-timezone Asia/Dhaka
+
 sudo pacman -Syu
 sudo pacman -S --needed base-devel git
 sudo pacman -S --needed flatpak
@@ -177,6 +179,7 @@ i3=(
     "xclip"
 )
 packages=(
+    "xdman-beta-bin"
     "qimgv"
     "ibus-avro-git"
     "mpv"
