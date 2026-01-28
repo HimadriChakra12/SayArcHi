@@ -19,6 +19,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 sudo timedatectl set-timezone Asia/Dhaka
+sudo usermod -aG tty himadri
 
 sudo pacman -Syu
 sudo pacman -S --needed base-devel git fzf
