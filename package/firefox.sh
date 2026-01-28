@@ -11,12 +11,23 @@ fi
 read -rp "Wanna Add The Dots? [y/n]: " ch
 [[ "$ch" != "y" ]] && exit 0
 
-read -rp "What's the path of your Firefox profile: " path
+FIREFOX_DIR="$HOME/.mozilla/firefox"
 
-if [[ ! -d "$path" ]]; then
-    echo "Invalid Firefox profile path"
+if [[ ! -d "$FIREFOX_DIR" ]]; then
+    echo "Firefox profile directory not found"
     exit 1
 fi
+
+echo "Select Firefox profile:"
+profile=$(ls "$FIREFOX_DIR" |
+    grep -E '\.default|\.default-release' |
+    fzf --prompt="Firefox Profile > ")
+
+[[ -z "$profile" ]] && echo "No profile selected" && exit 1
+
+path="$FIREFOX_DIR/$profile"
+
+echo "Using profile: $path"
 
 # Remove old chrome folder if exists
 if [[ -d "$path/chrome" ]]; then
@@ -33,35 +44,35 @@ Which Theme You want to install:
 read -rp "Choose [1-3]: " opt
 
 case "$opt" in
-    1)
-        echo "Installing Him-Ultima..."
-        curl -fsSL \
-          https://raw.githubusercontent.com/HimadriChakra12/HIM-ULTIMA/main/ffultima.sh \
-          | bash
-        ;;
-    2)
-        echo "Say-O-Fox is still under development"
-        ;;
-    3)
-        echo "Installing Dot theme..."
-        mkdir -p "$path/chrome"
+1)
+    echo "Installing Him-Ultima..."
+    curl -fsSL \
+        https://raw.githubusercontent.com/HimadriChakra12/HIM-ULTIMA/main/ffultima.sh |
+        bash
+    ;;
+2)
+    echo "Say-O-Fox is still under development"
+    ;;
+3)
+    echo "Installing Dot theme..."
+    mkdir -p "$path/chrome"
 
-        declare -A dotfiles=(
-            ["$HOME/.dotfiles/firefox/userChrome.css"]="$path/chrome/userChrome.css"
-            ["$HOME/.dotfiles/firefox/user.js"]="$path/user.js"
-        )
+    declare -A dotfiles=(
+        ["$HOME/.dotfiles/firefox/userChrome.css"]="$path/chrome/userChrome.css"
+        ["$HOME/.dotfiles/firefox/user.js"]="$path/user.js"
+    )
 
-        for src in "${!dotfiles[@]}"; do
-            tgt="${dotfiles[$src]}"
-            echo "Linking $src → $tgt"
-            rm -rf "$tgt"
-            ln -sf "$src" "$tgt"
-        done
-        ;;
-    *)
-        echo "Invalid choice"
-        exit 0
-        ;;
+    for src in "${!dotfiles[@]}"; do
+        tgt="${dotfiles[$src]}"
+        echo "Linking $src → $tgt"
+        rm -rf "$tgt"
+        ln -sf "$src" "$tgt"
+    done
+    ;;
+*)
+    echo "Invalid choice"
+    exit 0
+    ;;
 esac
 
 # -----------------------------
@@ -82,7 +93,7 @@ mkdir -p ~/.local/share/applications
 DESKTOP_FILE="$HOME/.local/share/applications/firefox.desktop"
 
 if [[ ! -f "$DESKTOP_FILE" ]]; then
-    cat > "$DESKTOP_FILE" <<EOF
+    cat >"$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Name=Firefox
 Exec=firefox %u

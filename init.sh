@@ -21,7 +21,7 @@ NC='\033[0m' # No Color
 sudo timedatectl set-timezone Asia/Dhaka
 
 sudo pacman -Syu
-sudo pacman -S --needed base-devel git
+sudo pacman -S --needed base-devel git fzf
 sudo pacman -S --needed flatpak
 
 if [ -d "$HOME/sayarchi" ]; then
