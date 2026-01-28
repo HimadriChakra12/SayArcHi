@@ -54,6 +54,9 @@ scripts=(
     "docker:$HOME/sayarchi/package/docker.sh"
     "devbox:$HOME/sayarchi/package/devbox.sh"
     "monkey:$HOME/sayarchi/setups/monkeytype.sh"
+    "libinput:$HOME/sayarchi/package/libinput.sh"
+    "mp3tag:$HOME/sayarchi/package/mp3tag.sh"
+    "ollama:$HOME/sayarchi/package/ollama.sh"
 )
 
 echo "Running Scripts"
