@@ -2,7 +2,7 @@
 set -e
 
 # Install ollama
-yay -S --needed ollama
+yay -S --noconfirm --needed ollama
 
 # Enable + start service
 sudo systemctl enable --now ollama
