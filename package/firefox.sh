@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 
 # -----------------------------
 # Install Firefox (Arch only)
@@ -8,14 +8,46 @@ if ! command -v firefox &>/dev/null; then
     yay -S --noconfirm firefox
 fi
 
+# -----------------------------
+# Firefox policies (Arch)
+# -----------------------------
+if [[ -f "$HOME/.dotfiles/firefox/policies.json" ]]; then
+    sudo mkdir -p /usr/lib/firefox/distribution
+    sudo cp "$HOME/.dotfiles/firefox/policies.json" \
+        /usr/lib/firefox/distribution/
+fi
+
+# -----------------------------
+# Desktop entry
+# -----------------------------
+echo "Ensuring local .desktop entry exists..."
+mkdir -p ~/.local/share/applications
+
+DESKTOP_FILE="$HOME/.local/share/applications/firefox.desktop"
+
+if [[ ! -f "$DESKTOP_FILE" ]]; then
+    cat >"$DESKTOP_FILE" <<EOF
+[Desktop Entry]
+Name=Firefox
+Exec=firefox %u
+Type=Application
+Icon=firefox
+Terminal=false
+Categories=Network;WebBrowser;
+MimeType=x-scheme-handler/http;x-scheme-handler/https;
+StartupNotify=true
+EOF
+fi
+
+xdg-settings set default-web-browser firefox.desktop
+echo "Firefox set as default browser ✅"
 read -rp "Wanna Add The Dots? [y/n]: " ch
 [[ "$ch" != "y" ]] && exit 0
 
-FIREFOX_DIR="$HOME/.mozilla/firefox"
+FIREFOX_DIR="$HOME/.config/mozilla/firefox"
 
 if [[ ! -d "$FIREFOX_DIR" ]]; then
-    echo "Firefox profile directory not found"
-    exit 1
+	mkdir $FIREFOX_DIR
 fi
 
 echo "Select Firefox profile:"
@@ -75,36 +107,3 @@ case "$opt" in
     ;;
 esac
 
-# -----------------------------
-# Firefox policies (Arch)
-# -----------------------------
-if [[ -f "$HOME/.dotfiles/firefox/policies.json" ]]; then
-    sudo mkdir -p /usr/lib/firefox/distribution
-    sudo cp "$HOME/.dotfiles/firefox/policies.json" \
-        /usr/lib/firefox/distribution/
-fi
-
-# -----------------------------
-# Desktop entry
-# -----------------------------
-echo "Ensuring local .desktop entry exists..."
-mkdir -p ~/.local/share/applications
-
-DESKTOP_FILE="$HOME/.local/share/applications/firefox.desktop"
-
-if [[ ! -f "$DESKTOP_FILE" ]]; then
-    cat >"$DESKTOP_FILE" <<EOF
-[Desktop Entry]
-Name=Firefox
-Exec=firefox %u
-Type=Application
-Icon=firefox
-Terminal=false
-Categories=Network;WebBrowser;
-MimeType=x-scheme-handler/http;x-scheme-handler/https;
-StartupNotify=true
-EOF
-fi
-
-xdg-settings set default-web-browser firefox.desktop
-echo "Firefox set as default browser ✅"

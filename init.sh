@@ -37,26 +37,16 @@ echo -e "${GREEN}Dotfiles!${NC}"
 echo -e "${GREEN}==================${NC}"
 
 git clone https://github.com/HimadriChakra12/.dotfiles.git ~/.dotfiles
-bash ~/.dotfiles/dots.sh
+bash $HOME/.dotfiles/dots.sh
 
 git clone https://github.com/HimadriChakra12/himstart.nvim ~/.config/nvim
 
-#!/usr/bin/env bash
-set -e # exit if any script fails
-
 scripts=(
     "AUR-Helpers:$HOME/sayarchi/package/AUR.sh"
-    "firefox:$HOME/sayarchi/package/firefox.sh"
     "ly:$HOME/sayarchi/package/ly.sh"
+    "firefox:$HOME/sayarchi/package/firefox.sh"
     "pcmanfm:$HOME/sayarchi/package/pcmanfm.sh"
-    "spotify:$HOME/sayarchi/package/spotify.sh"
     "reflactor:$HOME/sayarchi/package/reflactor.sh"
-    "docker:$HOME/sayarchi/package/docker.sh"
-    "devbox:$HOME/sayarchi/package/devbox.sh"
-    "monkey:$HOME/sayarchi/setups/monkeytype.sh"
-    "libinput:$HOME/sayarchi/package/libinput.sh"
-    "mp3tag:$HOME/sayarchi/package/mp3tag.sh"
-    "ollama:$HOME/sayarchi/package/ollama.sh"
 )
 
 echo "Running Scripts"
