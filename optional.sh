@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 scripts=(
-    "spotify:$HOME/sayarchi/package/spotify.sh"
+ #   "spotify:$HOME/sayarchi/package/spotify.sh"
     "ollama:$HOME/sayarchi/package/ollama.sh"
     "docker:$HOME/sayarchi/package/docker.sh"
     "devbox:$HOME/sayarchi/package/devbox.sh"
