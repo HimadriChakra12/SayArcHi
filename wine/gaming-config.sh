@@ -276,7 +276,7 @@ Windows Registry Editor Version 5.00
 "DirectDrawRenderer"="opengl"
 "MaxVersionGL"=dword:00040006
 "UseGLSL"="enabled"
-"VideoMemorySize"="8192"
+"VideoMemorySize"="16384"
 "OffscreenRenderingMode"="fbo"
 "StrictDrawOrdering"="disabled"
 "Multisampling"="enabled"
@@ -422,16 +422,27 @@ export RADV_DEBUG=novrsflatshading
 export ACO_DEBUG=perfwarn
 EOF
     ;;
-  intel)
-    cat >> "$WINEPREFIX/gaming-env.sh" <<'EOF'
+intel)
+  cat >> "$WINEPREFIX/gaming-env.sh" <<'EOF'
 # ============================================================================
-# Intel Optimizations
+# Intel UHD 620 – Resolution & DXVK Fix
 # ============================================================================
 export mesa_glthread=true
+
+# Force modern GL/Vulkan reporting
+export MESA_GL_VERSION_OVERRIDE=4.6
+export MESA_GLSL_VERSION_OVERRIDE=460
+
+# Prevent Intel GPU mis-detection
+export DXVK_FILTER_DEVICE_NAME="Intel"
+
+# Fix presentation & fullscreen issues
+export MESA_VK_WSI_PRESENT_MODE=mailbox
+
+# Stability
 export INTEL_DEBUG=nofc
-export ANV_QUEUE_THREAD_DISABLE=1
 EOF
-    ;;
+  ;;
 esac
 
 cat >> "$WINEPREFIX/gaming-env.sh" <<'EOF'
@@ -637,7 +648,7 @@ if command -v gamemoderun >/dev/null 2>&1; then
     exec gamemoderun wine "$@"
   fi
 else
-  exec wine "$@"
+WINEDLLOVERRIDES="dxgi=n,b" exec wine "$@"
 fi
 LAUNCHER
 
