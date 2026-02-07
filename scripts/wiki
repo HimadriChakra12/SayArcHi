@@ -97,9 +97,7 @@ search_term="$*"
 # Save to history
 echo "$search_term" >> "$HISTORY_FILE"
 
-echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}📚 Searching Wikipedia: ${YELLOW}$search_term${NC}"
-echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${GREEN}Searching Wikipedia: ${YELLOW}$search_term${NC}"
 
 # URL encode properly using jq
 url_encoded=$(printf '%s' "$search_term" | jq -sRr @uri)
@@ -163,7 +161,6 @@ fetch_cache() {
 
 export -f fetch_cache
 export CACHE_DIR CACHE_EXPIRY
-
 # Parallel caching with spinner
 echo -e "${YELLOW}⟳ Caching articles...${NC}"
 echo "$titles" | xargs -P 10 -I {} bash -c 'fetch_cache "$@"' _ {} &
@@ -173,7 +170,7 @@ wait
 selected=$(echo "$titles" | fzf \
     --height=85% \
     --border=rounded \
-    --border-label=" 📚 Wikipedia Search Results " \
+    --border-label=" Wikipedia Search Results " \
     --prompt="❯ " \
     --pointer="▶" \
     --marker="✓" \
