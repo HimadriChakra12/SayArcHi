@@ -90,11 +90,6 @@ shell=(
     "starship"
     "zsh"
 )
-flatpak=(
-    "com.github.tchx84.Flatseal"
-    "it.mijorus.gearlever"
-    "com.github.wwmm.easyeffects"
-)
 i3=(
     "i3-wm"
     "i3blocks"
@@ -209,10 +204,6 @@ echo -e "${GREEN}======================================${NC}"
 
 yay -S --noconfirm "${packages[@]}"
 
-echo -e "\n${GREEN}======================================${NC}"
-echo -e "${GREEN}Installing Flatpak Packages!${NC}"
-echo -e "${GREEN}======================================${NC}"
-flatpak install "${flatpak[@]}"
 
 echo "
 Defaulting Apps
