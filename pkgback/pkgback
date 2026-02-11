@@ -1,0 +1,402 @@
+#!/bin/bash
+# pkgback - Source this file to automatically track package installations
+# Usage: source pkgback (add to ~/.bashrc or ~/.zshrc)
+
+# Configuration
+export PKGBACK_DIR="${PKGBACK_DIR:-$HOME/.local/share/pkgback}"
+export PKGBACK_TRACK_DIR="$PKGBACK_DIR/installations"
+export PKGBACK_ENABLED="${PKGBACK_ENABLED:-true}"
+
+# Create directories
+mkdir -p "$PKGBACK_TRACK_DIR"
+
+# Detect shell
+if [ -n "$BASH_VERSION" ]; then
+    PKGBACK_SHELL="bash"
+elif [ -n "$ZSH_VERSION" ]; then
+    PKGBACK_SHELL="zsh"
+else
+    PKGBACK_SHELL="unknown"
+fi
+
+# Colors
+_pkgback_green='\033[0;32m'
+_pkgback_blue='\033[0;34m'
+_pkgback_yellow='\033[1;33m'
+_pkgback_nc='\033[0m'
+
+# Track installation function
+_pkgback_track() {
+    local packages=("$@")
+    local timestamp=$(date +"%Y%m%d_%H%M%S")
+    local date_iso=$(date -Iseconds)
+    
+    # Determine package manager
+    local pm_name="yay"
+    command -v paru &>/dev/null && pm_name="paru"
+    command -v pikaur &>/dev/null && pm_name="pikaur"
+    
+    # Create installation record
+    local install_file="$PKGBACK_TRACK_DIR/install_${timestamp}.json"
+    
+    {
+        echo "{"
+        echo "  \"timestamp\": \"$date_iso\","
+        echo "  \"package_manager\": \"$pm_name\","
+        echo "  \"hostname\": \"$(hostname)\","
+        echo "  \"user\": \"$USER\","
+        echo "  \"shell\": \"$PKGBACK_SHELL\","
+        echo "  \"requested_packages\": ["
+        
+        local first=true
+        for pkg in "${packages[@]}"; do
+            [[ "$first" == "true" ]] && first=false || echo ","
+            echo -n "    \"$pkg\""
+        done
+        
+        echo ""
+        echo "  ],"
+        echo "  \"installed_packages\": ["
+        
+        first=true
+        pacman -Qe 2>/dev/null | while read -r pkg_name pkg_version; do
+            [[ "$first" == "true" ]] && first=false || echo ","
+            echo -n "    {\"name\": \"$pkg_name\", \"version\": \"$pkg_version\"}"
+        done
+        
+        echo ""
+        echo "  ]"
+        echo "}"
+    } > "$install_file"
+    
+    # Update current package list
+    local export_file="$PKGBACK_DIR/packages_current.json"
+    
+    {
+        echo "{"
+        echo "  \"export_date\": \"$date_iso\","
+        echo "  \"hostname\": \"$(hostname)\","
+        echo "  \"package_manager\": \"$pm_name\","
+        echo "  \"auto_export\": true,"
+        echo "  \"packages\": ["
+        
+        first=true
+        pacman -Qe 2>/dev/null | while read -r pkg_name pkg_version; do
+            [[ "$first" == "true" ]] && first=false || echo ","
+            echo -n "    {\"name\": \"$pkg_name\", \"version\": \"$pkg_version\"}"
+        done
+        
+        echo ""
+        echo "  ]"
+        echo "}"
+    } > "$export_file"
+    
+    # Pretty print if jq available
+    if command -v jq &>/dev/null; then
+        jq '.' "$install_file" > "${install_file}.tmp" 2>/dev/null && mv "${install_file}.tmp" "$install_file"
+        jq '.' "$export_file" > "${export_file}.tmp" 2>/dev/null && mv "${export_file}.tmp" "$export_file"
+    fi
+    
+    # Show notification
+    echo -e "${_pkgback_green}✓ Tracked:${_pkgback_nc} ${packages[*]}" >&2
+    echo -e "${_pkgback_blue}  Saved to: $install_file${_pkgback_nc}" >&2
+}
+
+# Wrapper for yay
+yay() {
+    local args=("$@")
+    local is_install=false
+    local packages=()
+    
+    # Check if this is an install operation
+    for arg in "${args[@]}"; do
+        case "$arg" in
+            -S|--sync|-U|--upgrade)
+                is_install=true
+                ;;
+        esac
+    done
+    
+    # Run the real yay
+    command yay "$@"
+    local exit_code=$?
+    
+    # Track if successful install
+    if [[ $exit_code -eq 0 ]] && [[ "$is_install" == "true" ]] && [[ "$PKGBACK_ENABLED" == "true" ]]; then
+        # Extract package names
+        local skip_next=false
+        for arg in "${args[@]}"; do
+            if [[ "$skip_next" == "true" ]]; then
+                skip_next=false
+                continue
+            fi
+            
+            case "$arg" in
+                -S|-U|--sync|--upgrade)
+                    continue
+                    ;;
+                --config|--dbpath|--root|--arch|--cachedir|--gpgdir|--hookdir|--logfile)
+                    skip_next=true
+                    continue
+                    ;;
+                -*)
+                    continue
+                    ;;
+                *)
+                    packages+=("$arg")
+                    ;;
+            esac
+        done
+        
+        # Track if we have packages
+        if [[ ${#packages[@]} -gt 0 ]]; then
+            _pkgback_track "${packages[@]}"
+        fi
+    fi
+    
+    return $exit_code
+}
+
+# Wrapper for paru
+paru() {
+    local args=("$@")
+    local is_install=false
+    local packages=()
+    
+    for arg in "${args[@]}"; do
+        case "$arg" in
+            -S|--sync|-U|--upgrade)
+                is_install=true
+                ;;
+        esac
+    done
+    
+    command paru "$@"
+    local exit_code=$?
+    
+    if [[ $exit_code -eq 0 ]] && [[ "$is_install" == "true" ]] && [[ "$PKGBACK_ENABLED" == "true" ]]; then
+        local skip_next=false
+        for arg in "${args[@]}"; do
+            if [[ "$skip_next" == "true" ]]; then
+                skip_next=false
+                continue
+            fi
+            
+            case "$arg" in
+                -S|-U|--sync|--upgrade)
+                    continue
+                    ;;
+                --config|--dbpath|--root|--arch|--cachedir|--gpgdir|--hookdir|--logfile)
+                    skip_next=true
+                    continue
+                    ;;
+                -*)
+                    continue
+                    ;;
+                *)
+                    packages+=("$arg")
+                    ;;
+            esac
+        done
+        
+        if [[ ${#packages[@]} -gt 0 ]]; then
+            _pkgback_track "${packages[@]}"
+        fi
+    fi
+    
+    return $exit_code
+}
+
+# Wrapper for pikaur
+pikaur() {
+    local args=("$@")
+    local is_install=false
+    local packages=()
+    
+    for arg in "${args[@]}"; do
+        case "$arg" in
+            -S|--sync|-U|--upgrade)
+                is_install=true
+                ;;
+        esac
+    done
+    
+    command pikaur "$@"
+    local exit_code=$?
+    
+    if [[ $exit_code -eq 0 ]] && [[ "$is_install" == "true" ]] && [[ "$PKGBACK_ENABLED" == "true" ]]; then
+        local skip_next=false
+        for arg in "${args[@]}"; do
+            if [[ "$skip_next" == "true" ]]; then
+                skip_next=false
+                continue
+            fi
+            
+            case "$arg" in
+                -S|-U|--sync|--upgrade)
+                    continue
+                    ;;
+                --config|--dbpath|--root|--arch|--cachedir|--gpgdir|--hookdir|--logfile)
+                    skip_next=true
+                    continue
+                    ;;
+                -*)
+                    continue
+                    ;;
+                *)
+                    packages+=("$arg")
+                    ;;
+            esac
+        done
+        
+        if [[ ${#packages[@]} -gt 0 ]]; then
+            _pkgback_track "${packages[@]}"
+        fi
+    fi
+    
+    return $exit_code
+}
+
+# Wrapper for pacman (with sudo)
+pacman() {
+    local args=("$@")
+    local is_install=false
+    local packages=()
+    
+    for arg in "${args[@]}"; do
+        case "$arg" in
+            -S|--sync|-U|--upgrade)
+                is_install=true
+                ;;
+        esac
+    done
+    
+    # Pacman usually needs sudo
+    if [[ "$is_install" == "true" ]]; then
+        sudo command pacman "$@"
+    else
+        command pacman "$@"
+    fi
+    local exit_code=$?
+    
+    if [[ $exit_code -eq 0 ]] && [[ "$is_install" == "true" ]] && [[ "$PKGBACK_ENABLED" == "true" ]]; then
+        local skip_next=false
+        for arg in "${args[@]}"; do
+            if [[ "$skip_next" == "true" ]]; then
+                skip_next=false
+                continue
+            fi
+            
+            case "$arg" in
+                -S|-U|--sync|--upgrade)
+                    continue
+                    ;;
+                --config|--dbpath|--root|--arch|--cachedir|--gpgdir|--hookdir|--logfile)
+                    skip_next=true
+                    continue
+                    ;;
+                -*)
+                    continue
+                    ;;
+                *)
+                    packages+=("$arg")
+                    ;;
+            esac
+        done
+        
+        if [[ ${#packages[@]} -gt 0 ]]; then
+            _pkgback_track "${packages[@]}"
+        fi
+    fi
+    
+    return $exit_code
+}
+
+# Helper functions
+pkgback() {
+    case "${1:-help}" in
+        enable)
+            export PKGBACK_ENABLED=true
+            echo -e "${_pkgback_green}✓ Package tracking enabled${_pkgback_nc}"
+            ;;
+        disable)
+            export PKGBACK_ENABLED=false
+            echo -e "${_pkgback_yellow}✗ Package tracking disabled${_pkgback_nc}"
+            ;;
+        status)
+            echo -e "${_pkgback_blue}pkgback status:${_pkgback_nc}"
+            echo "  Enabled: $PKGBACK_ENABLED"
+            echo "  Directory: $PKGBACK_DIR"
+            echo "  Shell: $PKGBACK_SHELL"
+            echo "  Installations tracked: $(ls -1 "$PKGBACK_TRACK_DIR"/install_*.json 2>/dev/null | wc -l)"
+            ;;
+        list)
+            echo -e "${_pkgback_blue}Recent installations:${_pkgback_nc}"
+            ls -t "$PKGBACK_TRACK_DIR"/install_*.json 2>/dev/null | head -10 | while read -r file; do
+                if command -v jq &>/dev/null; then
+                    local timestamp=$(jq -r '.timestamp' "$file" 2>/dev/null)
+                    local packages=$(jq -r '.requested_packages[]' "$file" 2>/dev/null | tr '\n' ' ')
+                    local date_fmt=$(date -d "$timestamp" '+%Y-%m-%d %H:%M' 2>/dev/null || echo "$timestamp")
+                    echo "  $date_fmt | $packages"
+                fi
+            done
+            ;;
+        export)
+            local output="${2:-$HOME/packages_export_$(date +%Y%m%d).json}"
+            if [[ -f "$PKGBACK_DIR/packages_current.json" ]]; then
+                cp "$PKGBACK_DIR/packages_current.json" "$output"
+                echo -e "${_pkgback_green}✓ Exported to: $output${_pkgback_nc}"
+            else
+                echo -e "${_pkgback_yellow}No current package list found${_pkgback_nc}"
+            fi
+            ;;
+        clean)
+            local keep="${2:-10}"
+            echo -e "${_pkgback_blue}Keeping $keep most recent installations...${_pkgback_nc}"
+            ls -t "$PKGBACK_TRACK_DIR"/install_*.json 2>/dev/null | tail -n +$((keep + 1)) | while read -r file; do
+                rm "$file"
+                echo "  Removed: $(basename "$file")"
+            done
+            ;;
+        help)
+            echo "pkgback - Automatic Package Tracking"
+            echo ""
+            echo "Usage:"
+            echo "  source pkgback           # Enable tracking"
+            echo "  pkgback enable           # Enable tracking"
+            echo "  pkgback disable          # Disable tracking"
+            echo "  pkgback status           # Show status"
+            echo "  pkgback list             # List recent installations"
+            echo "  pkgback export [file]    # Export current packages"
+            echo "  pkgback clean [N]        # Keep only N recent installations (default: 10)"
+            echo ""
+            echo "After sourcing, just use your package manager normally:"
+            echo "  yay -S firefox           # Automatically tracked!"
+            echo "  paru -S neovim          # Automatically tracked!"
+            echo "  pacman -S git           # Automatically tracked!"
+            echo ""
+            echo "Files saved to: $PKGBACK_DIR"
+            ;;
+        *)
+            echo "Unknown command: $1"
+            echo "Run 'pkgback help' for usage"
+            ;;
+    esac
+}
+
+# Auto-clean old installations (keep last 50)
+_pkgback_autoclean() {
+    local count=$(ls -1 "$PKGBACK_TRACK_DIR"/install_*.json 2>/dev/null | wc -l)
+    if [[ $count -gt 50 ]]; then
+        ls -t "$PKGBACK_TRACK_DIR"/install_*.json 2>/dev/null | tail -n +51 | xargs -r rm --
+    fi
+}
+
+# Run autoclean in background
+(_pkgback_autoclean &) 2>/dev/null
+
+# Show loaded message
+if [[ "$PKGBACK_ENABLED" == "true" ]]; then
+    echo -e "${_pkgback_green}✓ pkgback loaded${_pkgback_nc} - Package installations will be tracked automatically"
+    echo -e "  Run ${_pkgback_blue}pkgback help${_pkgback_nc} for commands"
+fi
