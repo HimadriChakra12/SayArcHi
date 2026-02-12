@@ -27,21 +27,25 @@ _pkgback_nc='\033[0m'
 
 # Track installation function
 _pkgback_track() {
+    local operation="$1"
+    shift
     local packages=("$@")
     local timestamp=$(date +"%Y%m%d_%H%M%S")
     local date_iso=$(date -Iseconds)
     
-    # Determine package manager
-    local pm_name="yay"
-    command -v paru &>/dev/null && pm_name="paru"
-    command -v pikaur &>/dev/null && pm_name="pikaur"
+    # Determine which package manager was actually used
+    local pm_name="pacman"
+    [[ "${FUNCNAME[2]}" == "yay" ]] && pm_name="yay"
+    [[ "${FUNCNAME[2]}" == "paru" ]] && pm_name="paru"
+    [[ "${FUNCNAME[2]}" == "pikaur" ]] && pm_name="pikaur"
     
-    # Create installation record
-    local install_file="$PKGBACK_TRACK_DIR/install_${timestamp}.json"
+    # Create installation/removal record
+    local record_file="$PKGBACK_TRACK_DIR/${operation}_${timestamp}.json"
     
     {
         echo "{"
         echo "  \"timestamp\": \"$date_iso\","
+        echo "  \"operation\": \"$operation\","
         echo "  \"package_manager\": \"$pm_name\","
         echo "  \"hostname\": \"$(hostname)\","
         echo "  \"user\": \"$USER\","
@@ -67,7 +71,7 @@ _pkgback_track() {
         echo ""
         echo "  ]"
         echo "}"
-    } > "$install_file"
+    } > "$record_file"
     
     # Update current package list
     local export_file="$PKGBACK_DIR/packages_current.json"
@@ -93,26 +97,34 @@ _pkgback_track() {
     
     # Pretty print if jq available
     if command -v jq &>/dev/null; then
-        jq '.' "$install_file" > "${install_file}.tmp" 2>/dev/null && mv "${install_file}.tmp" "$install_file"
+        jq '.' "$record_file" > "${record_file}.tmp" 2>/dev/null && mv "${record_file}.tmp" "$record_file"
         jq '.' "$export_file" > "${export_file}.tmp" 2>/dev/null && mv "${export_file}.tmp" "$export_file"
     fi
     
     # Show notification
-    echo -e "${_pkgback_green}✓ Tracked:${_pkgback_nc} ${packages[*]}" >&2
-    echo -e "${_pkgback_blue}  Saved to: $install_file${_pkgback_nc}" >&2
+    if [[ "$operation" == "install" ]]; then
+        echo -e "${_pkgback_green}✓ Installed & tracked:${_pkgback_nc} ${packages[*]}" >&2
+    else
+        echo -e "${_pkgback_yellow}✓ Removed & tracked:${_pkgback_nc} ${packages[*]}" >&2
+    fi
+    echo -e "${_pkgback_blue}  Saved to: $record_file${_pkgback_nc}" >&2
 }
 
 # Wrapper for yay
 yay() {
     local args=("$@")
     local is_install=false
+    local is_remove=false
     local packages=()
     
-    # Check if this is an install operation
+    # Check if this is an install or remove operation
     for arg in "${args[@]}"; do
         case "$arg" in
             -S|--sync|-U|--upgrade)
                 is_install=true
+                ;;
+            -R|--remove|-Rs|-Rns|-Rn)
+                is_remove=true
                 ;;
         esac
     done
@@ -121,36 +133,42 @@ yay() {
     command yay "$@"
     local exit_code=$?
     
-    # Track if successful install
-    if [[ $exit_code -eq 0 ]] && [[ "$is_install" == "true" ]] && [[ "$PKGBACK_ENABLED" == "true" ]]; then
-        # Extract package names
-        local skip_next=false
-        for arg in "${args[@]}"; do
-            if [[ "$skip_next" == "true" ]]; then
-                skip_next=false
-                continue
-            fi
+    # Track if successful operation
+    if [[ $exit_code -eq 0 ]] && [[ "$PKGBACK_ENABLED" == "true" ]]; then
+        if [[ "$is_install" == "true" ]] || [[ "$is_remove" == "true" ]]; then
+            # Extract package names
+            local skip_next=false
+            for arg in "${args[@]}"; do
+                if [[ "$skip_next" == "true" ]]; then
+                    skip_next=false
+                    continue
+                fi
+                
+                case "$arg" in
+                    -S|-U|-R|--sync|--upgrade|--remove|-Rs|-Rns|-Rn)
+                        continue
+                        ;;
+                    --config|--dbpath|--root|--arch|--cachedir|--gpgdir|--hookdir|--logfile)
+                        skip_next=true
+                        continue
+                        ;;
+                    -*)
+                        continue
+                        ;;
+                    *)
+                        packages+=("$arg")
+                        ;;
+                esac
+            done
             
-            case "$arg" in
-                -S|-U|--sync|--upgrade)
-                    continue
-                    ;;
-                --config|--dbpath|--root|--arch|--cachedir|--gpgdir|--hookdir|--logfile)
-                    skip_next=true
-                    continue
-                    ;;
-                -*)
-                    continue
-                    ;;
-                *)
-                    packages+=("$arg")
-                    ;;
-            esac
-        done
-        
-        # Track if we have packages
-        if [[ ${#packages[@]} -gt 0 ]]; then
-            _pkgback_track "${packages[@]}"
+            # Track if we have packages
+            if [[ ${#packages[@]} -gt 0 ]]; then
+                if [[ "$is_install" == "true" ]]; then
+                    _pkgback_track "install" "${packages[@]}"
+                else
+                    _pkgback_track "remove" "${packages[@]}"
+                fi
+            fi
         fi
     fi
     
@@ -161,6 +179,7 @@ yay() {
 paru() {
     local args=("$@")
     local is_install=false
+    local is_remove=false
     local packages=()
     
     for arg in "${args[@]}"; do
@@ -168,39 +187,48 @@ paru() {
             -S|--sync|-U|--upgrade)
                 is_install=true
                 ;;
+            -R|--remove|-Rs|-Rns|-Rn)
+                is_remove=true
+                ;;
         esac
     done
     
     command paru "$@"
     local exit_code=$?
     
-    if [[ $exit_code -eq 0 ]] && [[ "$is_install" == "true" ]] && [[ "$PKGBACK_ENABLED" == "true" ]]; then
-        local skip_next=false
-        for arg in "${args[@]}"; do
-            if [[ "$skip_next" == "true" ]]; then
-                skip_next=false
-                continue
-            fi
+    if [[ $exit_code -eq 0 ]] && [[ "$PKGBACK_ENABLED" == "true" ]]; then
+        if [[ "$is_install" == "true" ]] || [[ "$is_remove" == "true" ]]; then
+            local skip_next=false
+            for arg in "${args[@]}"; do
+                if [[ "$skip_next" == "true" ]]; then
+                    skip_next=false
+                    continue
+                fi
+                
+                case "$arg" in
+                    -S|-U|-R|--sync|--upgrade|--remove|-Rs|-Rns|-Rn)
+                        continue
+                        ;;
+                    --config|--dbpath|--root|--arch|--cachedir|--gpgdir|--hookdir|--logfile)
+                        skip_next=true
+                        continue
+                        ;;
+                    -*)
+                        continue
+                        ;;
+                    *)
+                        packages+=("$arg")
+                        ;;
+                esac
+            done
             
-            case "$arg" in
-                -S|-U|--sync|--upgrade)
-                    continue
-                    ;;
-                --config|--dbpath|--root|--arch|--cachedir|--gpgdir|--hookdir|--logfile)
-                    skip_next=true
-                    continue
-                    ;;
-                -*)
-                    continue
-                    ;;
-                *)
-                    packages+=("$arg")
-                    ;;
-            esac
-        done
-        
-        if [[ ${#packages[@]} -gt 0 ]]; then
-            _pkgback_track "${packages[@]}"
+            if [[ ${#packages[@]} -gt 0 ]]; then
+                if [[ "$is_install" == "true" ]]; then
+                    _pkgback_track "install" "${packages[@]}"
+                else
+                    _pkgback_track "remove" "${packages[@]}"
+                fi
+            fi
         fi
     fi
     
@@ -211,6 +239,7 @@ paru() {
 pikaur() {
     local args=("$@")
     local is_install=false
+    local is_remove=false
     local packages=()
     
     for arg in "${args[@]}"; do
@@ -218,39 +247,48 @@ pikaur() {
             -S|--sync|-U|--upgrade)
                 is_install=true
                 ;;
+            -R|--remove|-Rs|-Rns|-Rn)
+                is_remove=true
+                ;;
         esac
     done
     
     command pikaur "$@"
     local exit_code=$?
     
-    if [[ $exit_code -eq 0 ]] && [[ "$is_install" == "true" ]] && [[ "$PKGBACK_ENABLED" == "true" ]]; then
-        local skip_next=false
-        for arg in "${args[@]}"; do
-            if [[ "$skip_next" == "true" ]]; then
-                skip_next=false
-                continue
-            fi
+    if [[ $exit_code -eq 0 ]] && [[ "$PKGBACK_ENABLED" == "true" ]]; then
+        if [[ "$is_install" == "true" ]] || [[ "$is_remove" == "true" ]]; then
+            local skip_next=false
+            for arg in "${args[@]}"; do
+                if [[ "$skip_next" == "true" ]]; then
+                    skip_next=false
+                    continue
+                fi
+                
+                case "$arg" in
+                    -S|-U|-R|--sync|--upgrade|--remove|-Rs|-Rns|-Rn)
+                        continue
+                        ;;
+                    --config|--dbpath|--root|--arch|--cachedir|--gpgdir|--hookdir|--logfile)
+                        skip_next=true
+                        continue
+                        ;;
+                    -*)
+                        continue
+                        ;;
+                    *)
+                        packages+=("$arg")
+                        ;;
+                esac
+            done
             
-            case "$arg" in
-                -S|-U|--sync|--upgrade)
-                    continue
-                    ;;
-                --config|--dbpath|--root|--arch|--cachedir|--gpgdir|--hookdir|--logfile)
-                    skip_next=true
-                    continue
-                    ;;
-                -*)
-                    continue
-                    ;;
-                *)
-                    packages+=("$arg")
-                    ;;
-            esac
-        done
-        
-        if [[ ${#packages[@]} -gt 0 ]]; then
-            _pkgback_track "${packages[@]}"
+            if [[ ${#packages[@]} -gt 0 ]]; then
+                if [[ "$is_install" == "true" ]]; then
+                    _pkgback_track "install" "${packages[@]}"
+                else
+                    _pkgback_track "remove" "${packages[@]}"
+                fi
+            fi
         fi
     fi
     
@@ -261,6 +299,7 @@ pikaur() {
 pacman() {
     local args=("$@")
     local is_install=false
+    local is_remove=false
     local packages=()
     
     for arg in "${args[@]}"; do
@@ -268,44 +307,53 @@ pacman() {
             -S|--sync|-U|--upgrade)
                 is_install=true
                 ;;
+            -R|--remove|-Rs|-Rns|-Rn)
+                is_remove=true
+                ;;
         esac
     done
     
-    # Pacman usually needs sudo
-    if [[ "$is_install" == "true" ]]; then
+    # Pacman usually needs sudo for install/remove
+    if [[ "$is_install" == "true" ]] || [[ "$is_remove" == "true" ]]; then
         sudo command pacman "$@"
     else
         command pacman "$@"
     fi
     local exit_code=$?
     
-    if [[ $exit_code -eq 0 ]] && [[ "$is_install" == "true" ]] && [[ "$PKGBACK_ENABLED" == "true" ]]; then
-        local skip_next=false
-        for arg in "${args[@]}"; do
-            if [[ "$skip_next" == "true" ]]; then
-                skip_next=false
-                continue
-            fi
+    if [[ $exit_code -eq 0 ]] && [[ "$PKGBACK_ENABLED" == "true" ]]; then
+        if [[ "$is_install" == "true" ]] || [[ "$is_remove" == "true" ]]; then
+            local skip_next=false
+            for arg in "${args[@]}"; do
+                if [[ "$skip_next" == "true" ]]; then
+                    skip_next=false
+                    continue
+                fi
+                
+                case "$arg" in
+                    -S|-U|-R|--sync|--upgrade|--remove|-Rs|-Rns|-Rn)
+                        continue
+                        ;;
+                    --config|--dbpath|--root|--arch|--cachedir|--gpgdir|--hookdir|--logfile)
+                        skip_next=true
+                        continue
+                        ;;
+                    -*)
+                        continue
+                        ;;
+                    *)
+                        packages+=("$arg")
+                        ;;
+                esac
+            done
             
-            case "$arg" in
-                -S|-U|--sync|--upgrade)
-                    continue
-                    ;;
-                --config|--dbpath|--root|--arch|--cachedir|--gpgdir|--hookdir|--logfile)
-                    skip_next=true
-                    continue
-                    ;;
-                -*)
-                    continue
-                    ;;
-                *)
-                    packages+=("$arg")
-                    ;;
-            esac
-        done
-        
-        if [[ ${#packages[@]} -gt 0 ]]; then
-            _pkgback_track "${packages[@]}"
+            if [[ ${#packages[@]} -gt 0 ]]; then
+                if [[ "$is_install" == "true" ]]; then
+                    _pkgback_track "install" "${packages[@]}"
+                else
+                    _pkgback_track "remove" "${packages[@]}"
+                fi
+            fi
         fi
     fi
     
@@ -328,18 +376,10 @@ pkgback() {
             echo "  Enabled: $PKGBACK_ENABLED"
             echo "  Directory: $PKGBACK_DIR"
             echo "  Shell: $PKGBACK_SHELL"
-            echo "  Installations tracked: $(ls -1 "$PKGBACK_TRACK_DIR"/install_*.json 2>/dev/null | wc -l)"
-            ;;
-        list)
-            echo -e "${_pkgback_blue}Recent installations:${_pkgback_nc}"
-            ls -t "$PKGBACK_TRACK_DIR"/install_*.json 2>/dev/null | head -10 | while read -r file; do
-                if command -v jq &>/dev/null; then
-                    local timestamp=$(jq -r '.timestamp' "$file" 2>/dev/null)
-                    local packages=$(jq -r '.requested_packages[]' "$file" 2>/dev/null | tr '\n' ' ')
-                    local date_fmt=$(date -d "$timestamp" '+%Y-%m-%d %H:%M' 2>/dev/null || echo "$timestamp")
-                    echo "  $date_fmt | $packages"
-                fi
-            done
+            local install_count=$(ls -1 "$PKGBACK_TRACK_DIR"/install_*.json 2>/dev/null | wc -l)
+            local remove_count=$(ls -1 "$PKGBACK_TRACK_DIR"/remove_*.json 2>/dev/null | wc -l)
+            echo "  Installations tracked: $install_count"
+            echo "  Removals tracked: $remove_count"
             ;;
         export)
             local output="${2:-$HOME/packages_export_$(date +%Y%m%d).json}"
@@ -366,16 +406,21 @@ pkgback() {
             echo "  pkgback enable           # Enable tracking"
             echo "  pkgback disable          # Disable tracking"
             echo "  pkgback status           # Show status"
-            echo "  pkgback list             # List recent installations"
             echo "  pkgback export [file]    # Export current packages"
-            echo "  pkgback clean [N]        # Keep only N recent installations (default: 10)"
+            echo "  pkgback clean [N]        # Keep only N recent records (default: 10)"
             echo ""
             echo "After sourcing, just use your package manager normally:"
-            echo "  yay -S firefox           # Automatically tracked!"
-            echo "  paru -S neovim          # Automatically tracked!"
-            echo "  pacman -S git           # Automatically tracked!"
+            echo "  yay -S firefox           # Install - automatically tracked!"
+            echo "  yay -R firefox           # Remove - automatically tracked!"
+            echo "  paru -S neovim           # Install - automatically tracked!"
+            echo "  pacman -Rs package       # Remove - automatically tracked!"
             echo ""
             echo "Files saved to: $PKGBACK_DIR"
+            echo ""
+            echo "To list your packages, use your package manager:"
+            echo "  pacman -Q                # List all installed packages"
+            echo "  pacman -Qe               # List explicitly installed"
+            echo "  yay -Q                   # Also works with AUR helpers"
             ;;
         *)
             echo "Unknown command: $1"
@@ -384,11 +429,11 @@ pkgback() {
     esac
 }
 
-# Auto-clean old installations (keep last 50)
+# Auto-clean old records (keep last 50)
 _pkgback_autoclean() {
-    local count=$(ls -1 "$PKGBACK_TRACK_DIR"/install_*.json 2>/dev/null | wc -l)
+    local count=$(ls -1 "$PKGBACK_TRACK_DIR"/{install,remove}_*.json 2>/dev/null | wc -l)
     if [[ $count -gt 50 ]]; then
-        ls -t "$PKGBACK_TRACK_DIR"/install_*.json 2>/dev/null | tail -n +51 | xargs -r rm --
+        ls -t "$PKGBACK_TRACK_DIR"/{install,remove}_*.json 2>/dev/null | tail -n +51 | xargs -r rm --
     fi
 }
 
