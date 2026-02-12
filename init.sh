@@ -43,10 +43,11 @@ git clone https://github.com/HimadriChakra12/himstart.nvim ~/.config/nvim
 
 scripts=(
     "AUR-Helpers:$HOME/sayarchi/package/AUR.sh"
+    "reflactor:$HOME/sayarchi/package/reflactor.sh"
     "ly:$HOME/sayarchi/package/ly.sh"
     "firefox:$HOME/sayarchi/package/firefox.sh"
     "pcmanfm:$HOME/sayarchi/package/pcmanfm.sh"
-    "reflactor:$HOME/sayarchi/package/reflactor.sh"
+    "pkgback:$HOME/sayarchi/pkgback/pkgback.sh"
 )
 
 echo "Running Scripts"
