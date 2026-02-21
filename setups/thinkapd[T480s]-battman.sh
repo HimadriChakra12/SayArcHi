@@ -154,8 +154,8 @@ sudo systemctl start t480s-fan.service
 echo "== Setting battery threshold 40-85 =="
 
 if [ -d /sys/class/power_supply/BAT0 ]; then
-    echo 40 | sudo tee /sys/class/power_supply/BAT0/charge_start_threshold
-    echo 85 | sudo tee /sys/class/power_supply/BAT0/charge_stop_threshold
+    echo 0 | sudo tee /sys/class/power_supply/BAT0/charge_start_threshold
+    echo 95 | sudo tee /sys/class/power_supply/BAT0/charge_stop_threshold
 fi
 
 # ------------------------------------------------
