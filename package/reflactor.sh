@@ -10,16 +10,18 @@ sudo cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup
 
 echo "==> Generating optimized mirrorlist..."
 sudo reflector \
-  --country US \
-  --latest 20 \
+  --country Singapore,India,Japan,South\ Korea,Hong\ Kong \
   --protocol https \
+  --latest 20 \
   --sort rate \
+  --threads 20 \
   --save /etc/pacman.d/mirrorlist
 
 echo "==> Enabling reflector systemd timer..."
 sudo systemctl enable reflector.timer
 sudo systemctl start reflector.timer
 
+sudo pacman -Syyu
 echo "==> Done!"
 echo "Mirrorlist updated and automatic updates enabled."
 
