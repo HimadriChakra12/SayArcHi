@@ -48,7 +48,6 @@ scripts=(
     "reflactor:$HOME/sayarchi/package/reflactor.sh"
     "ly:$HOME/sayarchi/package/ly.sh"
     "firefox:$HOME/sayarchi/package/firefox.sh"
-    "pcmanfm:$HOME/sayarchi/package/pcmanfm.sh"
     "pkgback:$HOME/sayarchi/pkgback/pkgback.sh"
 )
 
@@ -171,6 +170,7 @@ i3=(
     "xclip"
 )
 packages=(
+    "nemo"
     "songrec"
     "Darktable"
     "Obsidian"
