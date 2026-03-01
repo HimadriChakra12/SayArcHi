@@ -39,6 +39,8 @@ echo -e "${GREEN}==================${NC}"
 git clone https://github.com/HimadriChakra12/.dotfiles.git ~/.dotfiles
 bash $HOME/.dotfiles/dots.sh
 
+sudo cp $HOME/.dotfiles/pacman.conf /etc/pacman.conf
+
 git clone https://github.com/HimadriChakra12/himstart.nvim ~/.config/nvim
 
 scripts=(
@@ -169,6 +171,9 @@ i3=(
     "xclip"
 )
 packages=(
+    "songrec"
+    "Darktable"
+    "Obsidian"
     "xdman-beta-bin"
     "qimgv"
     "ibus-avro-git"
