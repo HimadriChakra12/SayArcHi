@@ -1,7 +1,7 @@
 #!/bin/bash
-sudo pacman -S base-devel git imlib2 libx11 libxft libxinerama libxrandr
+sudo pacman -S base-devel git imlib2 libx11 libxft libxinerama libxrandr slop
 
-path="$HOME/git"
+path="$HOME/pkg"
 sxiv="$path/hsxiv"
 
 mkdir -p $path
