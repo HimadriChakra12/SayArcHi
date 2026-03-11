@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # wine-create-prefix.sh - Create a clean Wine prefix
-# Version: 1.0
+# Version: 1.1 - Fixed for Intel UHD 620 / 1920x1080
 set -euo pipefail
 
 # ============================================================================
@@ -12,31 +12,27 @@ PREFIX_NAME="${2:-$(basename "$WINEPREFIX")}"
 # ============================================================================
 # Usage
 # ============================================================================
-if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
+if [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "--help" ]]; then
   cat <<EOF
 Usage: $0 [PREFIX_PATH] [NAME]
-
 Create a clean Wine prefix with basic configuration.
-
 Arguments:
   PREFIX_PATH    Path to Wine prefix (default: ~/.wine-custom)
   NAME           Friendly name (default: basename of path)
-
 Examples:
   $0
   $0 ~/.wine-games "Gaming"
   $0 ~/.wine-photoshop "Photoshop CS6"
-
 EOF
   exit 0
 fi
 
 echo "╔════════════════════════════════════════╗"
-echo "║   Wine Prefix Creator v1.0             ║"
+echo "║   Wine Prefix Creator v1.1             ║"
 echo "╚════════════════════════════════════════╝"
 echo
 echo "Prefix: $WINEPREFIX"
-echo "Name: $PREFIX_NAME"
+echo "Name:   $PREFIX_NAME"
 echo
 
 # ============================================================================
@@ -45,46 +41,40 @@ echo
 detect_gpu() {
   local gpu_info
   gpu_info=$(lspci 2>/dev/null | grep -E "VGA|3D" | head -n1 || echo "")
-  
-  if [[ "$gpu_info" =~ [Nn][Vv][Ii][Dd][Ii][Aa] ]]; then
-    echo "nvidia"
-  elif [[ "$gpu_info" =~ [Aa][Mm][Dd] ]] || [[ "$gpu_info" =~ [Rr][Aa][Dd][Ee][Oo][Nn] ]]; then
-    echo "amd"
-  elif [[ "$gpu_info" =~ [Ii][Nn][Tt][Ee][Ll] ]]; then
-    echo "intel"
-  else
-    echo "unknown"
+
+  if   [[ "$gpu_info" =~ [Nn][Vv][Ii][Dd][Ii][Aa] ]]; then echo "nvidia"
+  elif [[ "$gpu_info" =~ [Aa][Mm][Dd]|[Rr][Aa][Dd][Ee][Oo][Nn] ]]; then echo "amd"
+  elif [[ "$gpu_info" =~ [Ii][Nn][Tt][Ee][Ll] ]]; then echo "intel"
+  else echo "unknown"
   fi
 }
 
 get_vulkan_icd() {
   local gpu="$1"
-  local icd_paths=(
-    "/usr/share/vulkan/icd.d/${gpu}_icd.x86_64.json"
-    "/usr/share/vulkan/icd.d/${gpu}_icd.json"
-  )
-  
+  # Intel UHD 620 uses the ANV (Anvil) Vulkan driver
+  local candidates=()
   case "$gpu" in
-    amd)
-      icd_paths+=("/usr/share/vulkan/icd.d/radeon_icd.x86_64.json")
-      icd_paths+=("/usr/share/vulkan/icd.d/radeon_icd.json")
-      ;;
     intel)
-      icd_paths+=("/usr/share/vulkan/icd.d/intel_icd.x86_64.json")
-      icd_paths+=("/usr/share/vulkan/icd.d/intel_icd.json")
+      candidates=(
+        "/usr/share/vulkan/icd.d/intel_icd.x86_64.json"
+        "/usr/share/vulkan/icd.d/intel_icd.json"
+      )
+      ;;
+    amd)
+      candidates=(
+        "/usr/share/vulkan/icd.d/radeon_icd.x86_64.json"
+        "/usr/share/vulkan/icd.d/radeon_icd.json"
+      )
       ;;
     nvidia)
-      icd_paths+=("/usr/share/vulkan/icd.d/nvidia_icd.json")
+      candidates=(
+        "/usr/share/vulkan/icd.d/nvidia_icd.json"
+      )
       ;;
   esac
-  
-  for path in "${icd_paths[@]}"; do
-    if [[ -f "$path" ]]; then
-      echo "$path"
-      return
-    fi
+  for path in "${candidates[@]}"; do
+    [[ -f "$path" ]] && echo "$path" && return
   done
-  
   echo ""
 }
 
@@ -107,8 +97,8 @@ fi
 echo "🍷 Creating Wine prefix..."
 export WINEPREFIX
 export WINEARCH=win64
+# Disable Mono and Gecko prompts during init
 export WINEDLLOVERRIDES="mscoree,mshtml="
-
 wineboot --init >/dev/null 2>&1
 echo "✅ Prefix initialized"
 
@@ -134,26 +124,45 @@ echo "🎮 Detected GPU: $GPU"
 cat > "$WINEPREFIX/prefix-info.txt" <<EOF
 Wine Prefix Configuration
 =========================
-Name: $PREFIX_NAME
-Path: $WINEPREFIX
+Name:         $PREFIX_NAME
+Path:         $WINEPREFIX
 Architecture: win64
-GPU: $GPU
-Vulkan ICD: $VK_ICD
-Created: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+GPU:          $GPU
+Vulkan ICD:   $VK_ICD
+Created:      $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 Wine Version: $(wine --version 2>/dev/null || echo "unknown")
 EOF
 
-# Create base environment
+# ============================================================================
+# Base environment — Intel UHD 620 tweaks included here too
+# ============================================================================
 cat > "$WINEPREFIX/env.sh" <<EOF
 #!/usr/bin/env bash
-# Base Wine environment - Source this before running Wine
+# Base Wine environment — source this before running Wine
 export WINEPREFIX="$WINEPREFIX"
 export WINEARCH=win64
 export WINEDEBUG=-all
 export WINE_GPU="$GPU"
-[[ -n "$VK_ICD" ]] && export VK_ICD_FILENAMES="$VK_ICD"
-EOF
 
+# Vulkan ICD
+[[ -n "$VK_ICD" ]] && export VK_ICD_FILENAMES="$VK_ICD"
+
+# ── Intel-specific fixes ───────────────────────────────────────────────────
+if [[ "$GPU" == "intel" ]]; then
+  # Expose full GL 4.6 / GLSL 460 so DXVK doesn't fall back to SW renderer
+  export MESA_GL_VERSION_OVERRIDE=4.6
+  export MESA_GLSL_VERSION_OVERRIDE=460
+
+  # Use threaded Mesa GL (big CPU-side speed-up on integrated GPU)
+  export mesa_glthread=true
+
+  # Mailbox present mode avoids tearing without triple-buffering stalls
+  export MESA_VK_WSI_PRESENT_MODE=mailbox
+
+  # Suppress harmless fast-clear noise in logs
+  export INTEL_DEBUG=nofc
+fi
+EOF
 chmod +x "$WINEPREFIX/env.sh"
 
 # ============================================================================
@@ -164,14 +173,12 @@ echo "╔═══════════════════════�
 echo "║  ✅ Wine Prefix Created Successfully   ║"
 echo "╚════════════════════════════════════════╝"
 echo
-echo "Prefix: $WINEPREFIX"
-echo "Config: $WINEPREFIX/prefix-info.txt"
+echo "Prefix:      $WINEPREFIX"
+echo "Config:      $WINEPREFIX/prefix-info.txt"
 echo "Environment: $WINEPREFIX/env.sh"
 echo
 echo "Next steps:"
-echo "  1. Configure for gaming: ./wine-setup-gaming.sh $WINEPREFIX"
-echo "  2. Configure for Photoshop: ./wine-setup-photoshop.sh $WINEPREFIX"
+echo "  Configure for gaming:  ./gaming-setup.sh $WINEPREFIX"
 echo
 echo "Or use directly:"
-echo "  source $WINEPREFIX/env.sh"
-echo "  wine program.exe"
+echo "  source $WINEPREFIX/env.sh && wine program.exe"
