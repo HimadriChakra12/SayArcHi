@@ -49,6 +49,10 @@ scripts=(
     "ly:$HOME/sayarchi/package/ly.sh"
     "firefox:$HOME/sayarchi/package/firefox.sh"
     "pkgback:$HOME/sayarchi/pkgback/pkgback.sh"
+    "sxiv:$HOME/sayarchi/package/sxiv.sh"
+    "surf:$HOME/sayarchi/package/surf.sh"
+    "doi:$HOME/sayarchi/package/doi.sh"
+    "sxbv:$HOME/sayarchi/package/sxbv.sh"
 )
 
 echo "Running Scripts"
@@ -105,7 +109,6 @@ i3=(
     "flameshot"
     "wezterm"
     "mpv"
-    "feh"
     "ffmpeg"
     "wf-recorder"
     "libnotify"
@@ -120,8 +123,6 @@ i3=(
     "archlinux-xdg-menu"
     "awesome-terminal-fonts"
     "dex"
-
-    "dunst"
 
     "eos-settings-i3wm"
 
@@ -178,7 +179,6 @@ packages=(
     "qimgv"
     "ibus-avro-git"
     "mpv"
-    "qemu"
     "jdownloader2"
     "qbittorrent"
     "lollypop"
