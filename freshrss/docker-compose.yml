@@ -1,0 +1,10 @@
+services:
+  freshrss:
+    image: freshrss/freshrss
+    container_name: freshrss
+    ports:
+      - "1234:80"
+    volumes:
+      - $HOME/.dockerdat/freshrss/data:/var/www/FreshRSS/data
+      - $HOME/.dockerdat/freshrss/extensions:/var/www/FreshRSS/extensions
+    restart: unless-stopped
