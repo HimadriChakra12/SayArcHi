@@ -1,0 +1,14 @@
+services:
+
+    photopea:
+        image: ramuses/photopea:latest  
+        container_name: photopea              
+        restart: unless-stopped
+        ports:
+            - "8887:8887"
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=Europe/Madrid
+        volumes:
+            - ~/.dockerdat:/data
